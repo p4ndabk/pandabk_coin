@@ -38,7 +38,9 @@ func runPowDemo(args []string) {
 	retargetN := fs.Uint64("retarget", 10, "ajustar a dificuldade a cada N blocos")
 	progress := fs.Duration("progress", 5*time.Second, "intervalo do relatório de progresso da mineração")
 	name := fs.String("name", "", "nome do minerador (aparece nos logs e no placar; default minerador-<pid>)")
-	dbPath := fs.String("db", "", "arquivo SQLite compartilhado: liga o modo corrida entre mineradores")
+	dbPath := fs.String("db", "", "arquivo SQLite local: liga o modo corrida entre mineradores")
+	listen := fs.String("listen", "", "endereço host:porta (ex: :9551) para expor -db a mineradores de OUTRAS máquinas")
+	peer := fs.String("peer", "", "endereço host:porta de um minerador -listen remoto: minera de forma independente e reconcilia com ele sempre que possível (sem depender dele estar de pé)")
 	fs.Parse(args)
 
 	p, err := resolveProfile(*profileName)
@@ -62,15 +64,25 @@ func runPowDemo(args []string) {
 		os.Exit(2)
 	}
 
-	if *dbPath == "" {
+	if *dbPath == "" && *peer == "" {
 		runPowDemoSolo(p, *workers, *zeros, *blocks, *spacing, *retargetN, *progress)
 		return
+	}
+	if *peer != "" && *dbPath == "" {
+		fmt.Fprintln(os.Stderr, "-peer precisa de -db: seu minerador guarda uma cópia local sincronizada,\n"+
+			"em vez de depender 100% do peer estar de pé — e assim ele também vira um\n"+
+			"-peer válido pra um terceiro node. Ex: -db bob.db -peer 192.168.1.10:9551")
+		os.Exit(2)
+	}
+	if *listen != "" && *dbPath == "" {
+		fmt.Fprintln(os.Stderr, "-listen precisa de -db: é o banco local que ele vai expor pra rede")
+		os.Exit(2)
 	}
 	minerName := *name
 	if minerName == "" {
 		minerName = fmt.Sprintf("minerador-%d", os.Getpid())
 	}
-	runPowDemoShared(p, minerName, *dbPath, *workers, *zeros, *blocks, *spacing, *retargetN, *progress)
+	runPowDemoShared(p, minerName, *dbPath, *listen, *peer, *workers, *zeros, *blocks, *spacing, *retargetN, *progress)
 }
 
 func resolveProfile(name string) (params.Params, error) {
@@ -190,66 +202,109 @@ func runPowDemoSolo(p params.Params, workers int, zeros uint, blocks int, spacin
 	}
 }
 
-// ── modo corrida (SQLite compartilhado entre terminais) ────────────────────
+// ── modo corrida (SQLite local; -listen expõe pra rede, -peer reconcilia com
+// outra máquina). NÃO existe autoridade única: cada minerador aceita seus
+// próprios blocos localmente e sem esperar ninguém (igual ao M1.5 solo), e
+// reconcile.go resolve divergências em segundo plano comparando trabalho
+// acumulado — a rede não depende de nenhuma máquina específica continuar de
+// pé (ver cmd/node/SINCRONIZACAO.md, Modo 2). ──────────────────────────────
 
-func runPowDemoShared(p params.Params, name, dbPath string, workers int, zeros uint, blocksLimit int, spacing time.Duration, retargetN uint64, progress time.Duration) {
-	store, err := openDemoStore(dbPath)
+func runPowDemoShared(p params.Params, name, dbPath, listenAddr, peerAddr string, workers int, zeros uint, blocksLimit int, spacing time.Duration, retargetN uint64, progress time.Duration) {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	local, err := openDemoStore(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "abrindo %s: %v\n", dbPath, err)
 		os.Exit(1)
 	}
-	defer store.Close()
+	defer local.Close()
+	location := dbPath
 
-	meta, created, err := store.initMeta(demoMeta{profile: p.Name, spacing: spacing, retarget: retargetN, zeros: zeros})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "lendo config do banco: %v\n", err)
-		os.Exit(1)
+	// -peer nunca falha aqui: dialRaceStore não disca ainda, então este
+	// minerador sobe normalmente mesmo que o outro Mac ainda esteja
+	// desligado — reconcile()/peerLoop tentam a conexão de verdade abaixo.
+	var peer *netStore
+	if peerAddr != "" {
+		peer = dialRaceStore(peerAddr)
+		defer peer.Close()
+		location = fmt.Sprintf("%s (reconciliando com peer %s)", dbPath, peerAddr)
 	}
-	if !created {
-		// Quem chega depois adota as regras já gravadas: todos os
-		// mineradores do mesmo banco precisam concordar na dificuldade.
-		if meta.profile != p.Name || meta.spacing != spacing || meta.retarget != retargetN || meta.zeros != zeros {
-			fmt.Printf("ℹ️  adotando as regras já gravadas em %s: perfil %s, alvo %s/bloco, retarget a cada %d, zeros iniciais %d\n\n",
-				dbPath, meta.profile, meta.spacing, meta.retarget, meta.zeros)
-		}
-		if p, err = resolveProfile(meta.profile); err != nil {
-			fmt.Fprintf(os.Stderr, "perfil gravado no banco é inválido: %v\n", err)
+
+	if listenAddr != "" {
+		addr, err := serveRace(ctx, listenAddr, local)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "expondo %s em %s: %v\n", dbPath, listenAddr, err)
 			os.Exit(1)
 		}
+		fmt.Printf("📡 expondo %s pela rede em %s — outro Mac pode usar -peer <seu-ip>:%s\n\n",
+			dbPath, addr, addr[strings.LastIndex(addr, ":")+1:])
+	}
+
+	// A config (perfil/spacing/retarget/zeros) é local, do mesmo jeito que
+	// no modo de uma máquina só (M1.5) — sem depender do peer pra decidir
+	// nada disso. Com -peer, é responsabilidade de quem roda os dois
+	// mineradores passar as MESMAS flags nas duas máquinas (o equivalente
+	// demo de "os dois concordam no genesis" antes de ligar a rede).
+	wantMeta := demoMeta{profile: p.Name, spacing: spacing, retarget: retargetN, zeros: zeros}
+	meta, created, err := local.initMeta(wantMeta)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "lendo config local: %v\n", err)
+		os.Exit(1)
+	}
+	if !created && meta != wantMeta {
+		fmt.Printf("ℹ️  adotando as regras já gravadas em %s: perfil %s, alvo %s/bloco, retarget a cada %d, zeros iniciais %d\n\n",
+			dbPath, meta.profile, meta.spacing, meta.retarget, meta.zeros)
+	}
+	if p, err = resolveProfile(meta.profile); err != nil {
+		fmt.Fprintf(os.Stderr, "perfil gravado é inválido: %v\n", err)
+		os.Exit(1)
 	}
 	rules := demoRetargetRules(p, meta.retarget, meta.spacing)
 
-	tip, err := store.tip()
+	// Reconcilia com o peer ANTES de minerar (faz o papel do antigo IBD — se
+	// o banco local estiver vazio, reconcile() simplesmente adota a chain
+	// inteira do peer) e continua reconciliando em segundo plano pra sempre.
+	// Se o peer não responder agora, não é fatal: este node passa a minerar
+	// de forma independente e o peerLoop resolve quando ele aparecer.
+	if peer != nil {
+		startedUp := true
+		if err := reconcile(local, peer, name); err != nil {
+			fmt.Printf("📴 [%s] %s: peer %s inalcançável no início — minerando de forma independente até ele aparecer\n\n",
+				time.Now().Format("15:04:05"), name, peerAddr)
+			startedUp = false
+		}
+		go peerLoop(ctx, local, peer, name, startedUp)
+	}
+
+	tip, err := local.tip()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "lendo tip: %v\n", err)
 		os.Exit(1)
 	}
-	bits, err := bitsForHeight(store, rules, meta.zeros, tip.height+1)
+	bits, err := bitsForHeight(local, rules, meta.zeros, tip.height+1)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "derivando dificuldade: %v\n", err)
 		os.Exit(1)
 	}
-	balance, myBlocks, err := store.minerBalance(name)
+	balance, myBlocks, err := local.minerBalance(name)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "lendo carteira: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf(`⛏  PANDA powdemo — corrida de mineradores (banco compartilhado)
+	fmt.Printf(`⛏  PANDA powdemo — corrida de mineradores
 
    minerador         %s
-   banco             %s (altura atual: %d)
+   fonte             %s (altura atual: %d)
    perfil            %s | %d MiB por hash | %d worker(s)
    dificuldade       %#08x atual (~%s tentativas/bloco)
    retarget          a cada %d blocos, perseguindo %s por bloco
-   carteira          %s PANDA (%d blocos seus já no banco)
+   carteira          %s PANDA (%d blocos seus já registrados)
 
-`, name, dbPath, tip.height, p.Name, p.Argon2Mem/1024, workers,
+`, name, location, tip.height, p.Name, p.Argon2Mem/1024, workers,
 		bits, humanCount(avgAttempts(bits)), meta.retarget, meta.spacing,
 		formatPanda(balance), myBlocks)
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
 
 	sessionStart := time.Now()
 	var sessionHashes uint64
@@ -260,13 +315,13 @@ func runPowDemoShared(p params.Params, name, dbPath string, workers int, zeros u
 		if ctx.Err() != nil {
 			break
 		}
-		tip, err = store.tip()
+		tip, err = local.tip()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "lendo tip: %v\n", err)
 			break
 		}
 		height := tip.height + 1
-		bits, err = bitsForHeight(store, rules, meta.zeros, height)
+		bits, err = bitsForHeight(local, rules, meta.zeros, height)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "derivando dificuldade: %v\n", err)
 			break
@@ -307,7 +362,7 @@ func runPowDemoShared(p params.Params, name, dbPath string, workers int, zeros u
 				case <-mineCtx.Done():
 					return
 				case <-t.C:
-					if nt, err := store.tip(); err == nil && nt.height >= height {
+					if nt, err := local.tip(); err == nil && nt.height >= height {
 						cancelMine()
 						return
 					}
@@ -324,12 +379,12 @@ func runPowDemoShared(p params.Params, name, dbPath string, workers int, zeros u
 				fmt.Println("\ninterrompido.")
 				break
 			}
-			nt, err := store.tip()
+			nt, err := local.tip()
 			if err != nil || nt.height < height {
 				continue // cancelamento espúrio; tenta de novo
 			}
 			for h := height; h <= nt.height; h++ {
-				row, err := store.blockAt(h)
+				row, err := local.blockAt(h)
 				if err != nil {
 					continue
 				}
@@ -340,16 +395,30 @@ func runPowDemoShared(p params.Params, name, dbPath string, workers int, zeros u
 			continue
 		}
 
+		// A base que usamos pra minerar (tip.id) pode ter mudado enquanto
+		// procurávamos, de um jeito que o vigia acima NÃO pega: um reorg
+		// (peerLoop/reconcile) que troca de chain e, raramente, deixa a
+		// altura local MENOR do que quando começamos (peer com fork mais
+		// curto porém mais pesado). O vigia só cancela quando a altura
+		// AUMENTA; esta checagem cobre o resto — sem ela, inserir aqui
+		// criaria um buraco na tabela (uma altura sem o bloco anterior).
+		if curTip, err := local.tip(); err != nil || curTip.id != tip.id {
+			fmt.Printf("♻️  [%s] a base do bloco %d mudou enquanto minerava (reorg) — descartando e recomeçando\n\n",
+				time.Now().Format("15:04:05"), height)
+			continue
+		}
+
 		reward := p.BlockSubsidy(height)
 		id := found.ID()
-		err = store.insertBlock(demoBlockRow{
+		row := demoBlockRow{
 			height: height, id: hex.EncodeToString(id[:]), prev: hex.EncodeToString(tip.id[:]),
 			bits: bits, nonce: found.Nonce, miner: name, reward: reward,
 			attempts: hashes, durationMS: elapsed.Milliseconds(), foundAt: time.Now().Unix(),
-		})
+		}
+		err = local.insertBlock(row)
 		if errors.Is(err, errRaceLost) {
 			who := "outro minerador"
-			if winner, werr := store.blockAt(height); werr == nil {
+			if winner, werr := local.blockAt(height); werr == nil {
 				who = winner.miner
 			}
 			fmt.Printf("🐼 [%s] %s registrou o bloco %d primeiro — você perdeu a corrida (%s de trabalho descartado)\n\n",
@@ -358,7 +427,15 @@ func runPowDemoShared(p params.Params, name, dbPath string, workers int, zeros u
 		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "gravando bloco: %v\n", err)
-			break
+			continue
+		}
+		if peer != nil {
+			// Melhor esforço: avisa o peer JÁ (sem esperar o próximo tick do
+			// peerLoop). Se falhar — peer fora do ar, ou a chain dele já
+			// divergiu — sem problema, o peerLoop reconcilia em ~1s de
+			// qualquer jeito. O bloco já é seu, gravado localmente, com ou
+			// sem o peer.
+			_ = peer.insertBlock(row)
 		}
 		minedCount++
 		myBlocks++
@@ -378,7 +455,9 @@ func runPowDemoShared(p params.Params, name, dbPath string, workers int, zeros u
 	fmt.Printf("   %d blocos seus nesta sessão em %s | %d hashes ≈ %.1f H/s\n",
 		minedCount, total.Round(time.Second), sessionHashes, float64(sessionHashes)/total.Seconds())
 	fmt.Printf("   carteira total: %s PANDA (%d blocos no banco)\n\n", formatPanda(balance), myBlocks)
-	if err := printRanking(store, rules, meta); err != nil {
+	// Lê do banco LOCAL (sempre correto — nunca dependeu do peer pra
+	// aceitar blocos), então o placar final não depende do peer estar de pé.
+	if err := printRanking(local, rules, meta); err != nil {
 		fmt.Fprintf(os.Stderr, "placar: %v\n", err)
 	}
 }

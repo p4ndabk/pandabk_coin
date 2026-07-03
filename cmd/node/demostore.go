@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS blocks (
 
 type demoStore struct{ db *sql.DB }
 
+var _ raceStore = (*demoStore)(nil)
+
 // demoMeta é a config da corrida, gravada pelo primeiro minerador e adotada
 // por todos os outros — mineradores do mesmo banco precisam derivar a mesma
 // dificuldade.
@@ -75,6 +77,25 @@ type rankRow struct {
 	blocks uint64
 	reward uint64
 	avgMS  float64
+}
+
+// raceStore é o contrato que o powdemo (-db ou -peer) e os subcomandos de
+// consulta usam para falar com a corrida: local (*demoStore, arquivo SQLite
+// na mesma máquina) ou remoto (*netStore, TCP até um node -listen em outra
+// máquina — ver netstore.go). As duas implementações têm exatamente as
+// mesmas operações; quem chama nunca sabe se está falando com um arquivo ou
+// com a rede.
+type raceStore interface {
+	initMeta(demoMeta) (demoMeta, bool, error)
+	loadMeta() (demoMeta, error)
+	tip() (demoTip, error)
+	blockAt(height uint64) (demoBlockRow, error)
+	insertBlock(demoBlockRow) error
+	minerBalance(name string) (reward, blocks uint64, err error)
+	listBlocks(last int) ([]demoBlockRow, error)
+	ranking() ([]rankRow, error)
+	epochWindow(firstH, lastH uint64) (first, last int64, err error)
+	Close() error
 }
 
 func openDemoStore(path string) (*demoStore, error) {
@@ -192,6 +213,15 @@ func (s *demoStore) insertBlock(b demoBlockRow) error {
 	return nil
 }
 
+// truncateAbove descarta todo bloco com altura > height — usado só pelo
+// reconcile (reconcile.go) quando este banco perde a comparação de trabalho
+// acumulado pra outra chain: os blocos descartados aqui são o "reorg" da
+// demo, o mesmo papel que undo sets cumprem na chain de verdade (M2).
+func (s *demoStore) truncateAbove(height uint64) error {
+	_, err := s.db.Exec(`DELETE FROM blocks WHERE height > ?`, height)
+	return err
+}
+
 func (s *demoStore) minerBalance(name string) (reward, blocks uint64, err error) {
 	err = s.db.QueryRow(
 		`SELECT COALESCE(SUM(reward), 0), COUNT(*) FROM blocks WHERE miner = ?`, name).
@@ -259,7 +289,7 @@ func (s *demoStore) epochWindow(firstH, lastH uint64) (first, last int64, err er
 // começa nos zeros iniciais da meta e reaplica pow.NextBits época por época.
 // Determinística — qualquer minerador que leia o mesmo banco chega nos
 // mesmos bits, sem trocar nenhuma mensagem (é o consenso da demo).
-func bitsForHeight(s *demoStore, rules params.Params, zeros uint, height uint64) (uint32, error) {
+func bitsForHeight(s raceStore, rules params.Params, zeros uint, height uint64) (uint32, error) {
 	bits := initialBits(zeros)
 	n := rules.RetargetInterval
 	epochs := (height - 1) / n // épocas completas antes desta altura
@@ -275,11 +305,25 @@ func bitsForHeight(s *demoStore, rules params.Params, zeros uint, height uint64)
 
 // ── subcomandos de consulta (node blocks / node ranking) ───────────────────
 
-func openStoreForQuery(fs *flag.FlagSet, args []string, dbPath *string) *demoStore {
+// openStoreForQuery abre o banco local (-db) ou conecta num node remoto
+// (-peer) — os dois viram o mesmo raceStore para o resto do comando.
+func openStoreForQuery(fs *flag.FlagSet, args []string, dbPath, peer *string) raceStore {
 	fs.Parse(args)
-	if *dbPath == "" {
-		fmt.Fprintln(os.Stderr, "informe o banco: -db mineracao.db")
+	if *dbPath == "" && *peer == "" {
+		fmt.Fprintln(os.Stderr, "informe -db mineracao.db (mesma máquina) ou -peer host:porta (rede)")
 		os.Exit(2)
+	}
+	if *dbPath != "" && *peer != "" {
+		fmt.Fprintln(os.Stderr, "use -db OU -peer, não os dois")
+		os.Exit(2)
+	}
+	if *peer != "" {
+		store := dialRaceStore(*peer)
+		if _, err := store.tip(); err != nil { // comando avulso: falha rápido se não alcançar
+			fmt.Fprintf(os.Stderr, "conectando a %s: %v\n", *peer, err)
+			os.Exit(1)
+		}
+		return store
 	}
 	if _, err := os.Stat(*dbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "banco %s não encontrado — rode um minerador com -db primeiro\n", *dbPath)
@@ -293,11 +337,21 @@ func openStoreForQuery(fs *flag.FlagSet, args []string, dbPath *string) *demoSto
 	return store
 }
 
+// queryLabel devolve o texto pra exibir no cabeçalho: o caminho do arquivo
+// local ou o endereço do peer remoto, o que estiver preenchido.
+func queryLabel(dbPath, peer string) string {
+	if peer != "" {
+		return "peer " + peer
+	}
+	return dbPath
+}
+
 func runBlocks(args []string) {
 	fs := flag.NewFlagSet("blocks", flag.ExitOnError)
-	dbPath := fs.String("db", "", "arquivo SQLite da demo")
+	dbPath := fs.String("db", "", "arquivo SQLite da demo (mesma máquina)")
+	peer := fs.String("peer", "", "endereço host:porta de um node -listen (outra máquina)")
 	last := fs.Int("last", 20, "quantos blocos recentes mostrar")
-	store := openStoreForQuery(fs, args, dbPath)
+	store := openStoreForQuery(fs, args, dbPath, peer)
 	defer store.Close()
 
 	blocks, err := store.listBlocks(*last)
@@ -309,7 +363,7 @@ func runBlocks(args []string) {
 		fmt.Println("nenhum bloco no banco ainda.")
 		return
 	}
-	fmt.Printf("── últimos %d blocos (%s) ─────────────────────────────────────\n", len(blocks), *dbPath)
+	fmt.Printf("── últimos %d blocos (%s) ─────────────────────────────────────\n", len(blocks), queryLabel(*dbPath, *peer))
 	fmt.Printf(" %6s  %-14s  %-14s  %-11s  %10s  %8s  %10s\n",
 		"altura", "quando", "minerador", "dificuldade", "tentativas", "⏱ tempo", "recompensa")
 	for _, b := range blocks {
@@ -322,8 +376,9 @@ func runBlocks(args []string) {
 
 func runRanking(args []string) {
 	fs := flag.NewFlagSet("ranking", flag.ExitOnError)
-	dbPath := fs.String("db", "", "arquivo SQLite da demo")
-	store := openStoreForQuery(fs, args, dbPath)
+	dbPath := fs.String("db", "", "arquivo SQLite da demo (mesma máquina)")
+	peer := fs.String("peer", "", "endereço host:porta de um node -listen (outra máquina)")
+	store := openStoreForQuery(fs, args, dbPath, peer)
 	defer store.Close()
 
 	meta, err := store.loadMeta()
@@ -343,8 +398,8 @@ func runRanking(args []string) {
 }
 
 // printRanking imprime o placar por minerador + o estado atual da rede demo.
-// Usado pelo subcomando ranking e pelo resumo final do powdemo -db.
-func printRanking(store *demoStore, rules params.Params, meta demoMeta) error {
+// Usado pelo subcomando ranking e pelo resumo final do powdemo -db/-peer.
+func printRanking(store raceStore, rules params.Params, meta demoMeta) error {
 	ranks, err := store.ranking()
 	if err != nil {
 		return err
