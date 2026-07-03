@@ -4,6 +4,11 @@ Projeto base em Go usando Gin + GORM, organizado por domínio (sem
 interfaces/repository). Detalhes de arquitetura e convenções em
 [CLAUDE.md](./CLAUDE.md).
 
+> 🐼 **PANDA Coin**: este repositório também abriga o node da PANDA
+> (`cmd/node`). Quer criar sua wallet e rodar um node? Comece pelo
+> **[TUTORIAL.md](./TUTORIAL.md)**. Plano e decisões de design em
+> [PLAN.md](./PLAN.md); visão do projeto em [PROPOSTA.md](./PROPOSTA.md).
+
 ## Requisitos
 
 - Go 1.25+

@@ -41,7 +41,9 @@ func runPowDemo(args []string) {
 	dbPath := fs.String("db", "", "arquivo SQLite local: liga o modo corrida entre mineradores")
 	listen := fs.String("listen", "", "endereço host:porta (ex: :9551) para expor -db a mineradores de OUTRAS máquinas")
 	peer := fs.String("peer", "", "endereço host:porta de um minerador -listen remoto: minera de forma independente e reconcilia com ele sempre que possível (sem depender dele estar de pé)")
+	configPath := fs.String("config", "", "arquivo de configuração chave=valor com as mesmas chaves dos flags (default: panda.conf, se existir)")
 	fs.Parse(args)
+	applyConfig(fs, *configPath)
 
 	p, err := resolveProfile(*profileName)
 	if err != nil {
@@ -219,6 +221,12 @@ func runPowDemoShared(p params.Params, name, dbPath, listenAddr, peerAddr string
 		os.Exit(1)
 	}
 	defer local.Close()
+	if pruned, err := local.pruneDangling(); err != nil {
+		fmt.Fprintf(os.Stderr, "verificando %s: %v\n", dbPath, err)
+		os.Exit(1)
+	} else if pruned > 0 {
+		fmt.Printf("🩹 %s: removi %d bloco(s) solto(s) acima de um buraco de alturas — o reconcile os traz de volta em ordem se pertencerem à chain vencedora\n\n", dbPath, pruned)
+	}
 	location := dbPath
 
 	// -peer nunca falha aqui: dialRaceStore não disca ainda, então este

@@ -83,12 +83,13 @@ dependências.)
 
 ## Critérios de aceite
 
-- [ ] `wallet.go`, `sign.go` + testes
-- [ ] Teste: New/Load round-trip; arquivo sai com 0600
-- [ ] Teste: BuildTx seleciona, cria troco, assina — e a tx passa na validação
+- [x] `wallet.go`, `sign.go` + testes
+- [x] Teste: New/Load round-trip; arquivo sai com 0600
+- [x] Teste: BuildTx seleciona, cria troco, assina — e a tx passa na validação
       de assinatura de `core`
-- [ ] Teste: fundos insuficientes e troco-poeira
-- [ ] `node wallet new` (M5) imprime endereço `P...` que round-tripa no decode
+- [x] Teste: fundos insuficientes e troco-poeira
+- [x] `node wallet new` (antecipado do M5) imprime endereço `P...` que
+      round-tripa no decode; `node wallet show` reexibe
 
 ## Fora de escopo / não fazer
 

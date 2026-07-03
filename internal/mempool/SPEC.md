@@ -81,11 +81,11 @@ func (m *Mempool) Readd(txs []*core.Tx)
 
 ## Critérios de aceite
 
-- [ ] `mempool.go` + `mempool_test.go`
-- [ ] Teste: rejeita double-spend e assinatura inválida
-- [ ] Teste: ordenação por fee rate e corte por orçamento de bytes
-- [ ] Teste: evict no connect e restore (com revalidação) no reorg
-- [ ] Concorrência: `go test -race` verde
+- [x] `mempool.go` + `mempool_test.go`
+- [x] Teste: rejeita double-spend e assinatura inválida
+- [x] Teste: ordenação por fee rate e corte por orçamento de bytes
+- [x] Teste: evict no connect e restore (com revalidação) no reorg
+- [x] Concorrência: `go test -race` verde
 
 ## Fora de escopo / não fazer
 

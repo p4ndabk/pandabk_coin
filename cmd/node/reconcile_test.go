@@ -49,9 +49,11 @@ func idHex(b byte) string {
 	return strings.Repeat(string(rune(b)), 2) + strings.Repeat("0", 62)
 }
 
-func block(height uint64, id string, bits uint32, foundAt int64) demoBlockRow {
+var genesisPrev = strings.Repeat("0", 64)
+
+func block(height uint64, id, prev string, bits uint32, foundAt int64) demoBlockRow {
 	return demoBlockRow{
-		height: height, id: id, prev: strings.Repeat("0", 64), bits: bits,
+		height: height, id: id, prev: prev, bits: bits,
 		nonce: height, miner: "x", reward: 50 * params.CoinUnit, attempts: 1, durationMS: 1, foundAt: foundAt,
 	}
 }
@@ -59,8 +61,8 @@ func block(height uint64, id string, bits uint32, foundAt int64) demoBlockRow {
 func TestChainWork(t *testing.T) {
 	s := newLocalStore(t)
 	for _, b := range []demoBlockRow{
-		block(1, idHex('1'), heavyBits, 100),
-		block(2, idHex('2'), lightBits, 101),
+		block(1, idHex('1'), genesisPrev, heavyBits, 100),
+		block(2, idHex('2'), idHex('1'), lightBits, 101),
 	} {
 		if err := s.insertBlock(b); err != nil {
 			t.Fatalf("insertBlock: %v", err)
@@ -86,9 +88,9 @@ func TestReconcileEmptyLocalAdoptsWholePeerChain(t *testing.T) {
 	local := newLocalStore(t)
 	peerStore, peerClient := newPeer(t)
 	for _, b := range []demoBlockRow{
-		block(1, idHex('1'), heavyBits, 100),
-		block(2, idHex('2'), heavyBits, 101),
-		block(3, idHex('3'), heavyBits, 102),
+		block(1, idHex('1'), genesisPrev, heavyBits, 100),
+		block(2, idHex('2'), idHex('1'), heavyBits, 101),
+		block(3, idHex('3'), idHex('2'), heavyBits, 102),
 	} {
 		if err := peerStore.insertBlock(b); err != nil {
 			t.Fatalf("populando peer: %v", err)
@@ -119,17 +121,17 @@ func TestReconcileKeepsHeavierLocalChain(t *testing.T) {
 	peerStore, peerClient := newPeer(t)
 
 	// Ancestral comum na altura 1; divergem na altura 2.
-	common := block(1, idHex('1'), heavyBits, 100)
+	common := block(1, idHex('1'), genesisPrev, heavyBits, 100)
 	if err := local.insertBlock(common); err != nil {
 		t.Fatal(err)
 	}
 	if err := peerStore.insertBlock(common); err != nil {
 		t.Fatal(err)
 	}
-	if err := local.insertBlock(block(2, idHex('a'), heavyBits, 101)); err != nil { // pesado
+	if err := local.insertBlock(block(2, idHex('a'), idHex('1'), heavyBits, 101)); err != nil { // pesado
 		t.Fatal(err)
 	}
-	if err := peerStore.insertBlock(block(2, idHex('b'), lightBits, 101)); err != nil { // leve
+	if err := peerStore.insertBlock(block(2, idHex('b'), idHex('1'), lightBits, 101)); err != nil { // leve
 		t.Fatal(err)
 	}
 
@@ -150,17 +152,17 @@ func TestReconcileAdoptsHeavierPeerChainReorg(t *testing.T) {
 	local := newLocalStore(t)
 	peerStore, peerClient := newPeer(t)
 
-	common := block(1, idHex('1'), heavyBits, 100)
+	common := block(1, idHex('1'), genesisPrev, heavyBits, 100)
 	if err := local.insertBlock(common); err != nil {
 		t.Fatal(err)
 	}
 	if err := peerStore.insertBlock(common); err != nil {
 		t.Fatal(err)
 	}
-	if err := local.insertBlock(block(2, idHex('a'), lightBits, 101)); err != nil { // leve
+	if err := local.insertBlock(block(2, idHex('a'), idHex('1'), lightBits, 101)); err != nil { // leve
 		t.Fatal(err)
 	}
-	if err := peerStore.insertBlock(block(2, idHex('b'), heavyBits, 101)); err != nil { // pesado
+	if err := peerStore.insertBlock(block(2, idHex('b'), idHex('1'), heavyBits, 101)); err != nil { // pesado
 		t.Fatal(err)
 	}
 
@@ -184,10 +186,10 @@ func TestReconcileTieBreakIsConsistent(t *testing.T) {
 	local := newLocalStore(t)
 	peerStore, peerClient := newPeer(t)
 
-	if err := local.insertBlock(block(1, idHex('a'), heavyBits, 100)); err != nil { // "aa...", menor
+	if err := local.insertBlock(block(1, idHex('a'), genesisPrev, heavyBits, 100)); err != nil { // "aa...", menor
 		t.Fatal(err)
 	}
-	if err := peerStore.insertBlock(block(1, idHex('b'), heavyBits, 100)); err != nil { // "bb...", maior
+	if err := peerStore.insertBlock(block(1, idHex('b'), genesisPrev, heavyBits, 100)); err != nil { // "bb...", maior
 		t.Fatal(err)
 	}
 	if err := reconcile(local, peerClient, "x"); err != nil {
@@ -201,10 +203,10 @@ func TestReconcileTieBreakIsConsistent(t *testing.T) {
 	// Invertendo: agora o peer tem o id menor — ele deveria vencer.
 	local2 := newLocalStore(t)
 	peerStore2, peerClient2 := newPeer(t)
-	if err := local2.insertBlock(block(1, idHex('b'), heavyBits, 100)); err != nil {
+	if err := local2.insertBlock(block(1, idHex('b'), genesisPrev, heavyBits, 100)); err != nil {
 		t.Fatal(err)
 	}
-	if err := peerStore2.insertBlock(block(1, idHex('a'), heavyBits, 100)); err != nil {
+	if err := peerStore2.insertBlock(block(1, idHex('a'), genesisPrev, heavyBits, 100)); err != nil {
 		t.Fatal(err)
 	}
 	if err := reconcile(local2, peerClient2, "x"); err != nil {
@@ -219,7 +221,7 @@ func TestReconcileTieBreakIsConsistent(t *testing.T) {
 func TestReconcileNoOpWhenAlreadyInSync(t *testing.T) {
 	local := newLocalStore(t)
 	peerStore, peerClient := newPeer(t)
-	b := block(1, idHex('1'), heavyBits, 100)
+	b := block(1, idHex('1'), genesisPrev, heavyBits, 100)
 	if err := local.insertBlock(b); err != nil {
 		t.Fatal(err)
 	}

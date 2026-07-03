@@ -23,6 +23,8 @@ import (
 
 var errRaceLost = errors.New("outro minerador registrou um bloco nesta altura primeiro")
 
+var errOutOfSequence = errors.New("bloco não encadeia com o tip local")
+
 const demoSchema = `
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
@@ -196,11 +198,29 @@ func (s *demoStore) blockAt(height uint64) (demoBlockRow, error) {
 	return b, err
 }
 
-// insertBlock registra um bloco recém-minerado. A PRIMARY KEY em height
-// resolve a corrida: se já existe bloco nessa altura, alguém venceu antes e
-// o chamador recebe errRaceLost (o bloco dele vira "órfão" da demo).
+// insertBlock registra um bloco recém-minerado. O bloco tem que ENCADEAR com
+// o tip local (altura tip+1 e prev = id do tip): um push de peer adiantado
+// (ex: ele está na altura 235 e nós na 178) é recusado em vez de abrir um
+// buraco de alturas no banco — quem traz os blocos que faltam, EM ORDEM, é o
+// reconcile. A PRIMARY KEY em height resolve a corrida: se já existe bloco
+// nessa altura, alguém venceu antes e o chamador recebe errRaceLost (o bloco
+// dele vira "órfão" da demo).
 func (s *demoStore) insertBlock(b demoBlockRow) error {
-	_, err := s.db.Exec(
+	t, err := s.tip()
+	if err != nil {
+		return err
+	}
+	switch {
+	case b.height <= t.height:
+		return fmt.Errorf("%w (altura %d)", errRaceLost, b.height)
+	case b.height > t.height+1:
+		return fmt.Errorf("%w: altura %d com tip local em %d — reconcile trará os que faltam", errOutOfSequence, b.height, t.height)
+	case b.prev != hex.EncodeToString(t.id[:]):
+		// altura certa mas outro pai: fork — a comparação de trabalho do
+		// reconcile decide, não um insert avulso
+		return fmt.Errorf("%w (altura %d de um fork)", errRaceLost, b.height)
+	}
+	_, err = s.db.Exec(
 		`INSERT INTO blocks(height, id, prev, bits, nonce, miner, reward, attempts, duration_ms, found_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		b.height, b.id, b.prev, b.bits, b.nonce, b.miner, b.reward, b.attempts, b.durationMS, b.foundAt)
@@ -211,6 +231,51 @@ func (s *demoStore) insertBlock(b demoBlockRow) error {
 		return err
 	}
 	return nil
+}
+
+// pruneDangling remove blocos soltos acima do primeiro buraco de alturas —
+// herança de bancos gravados antes do insertBlock exigir encadeamento (um
+// push de peer adiantado abria buraco e a derivação de dificuldade travava
+// no primeiro bloco ausente). Os blocos removidos voltam pelo reconcile, em
+// ordem, se realmente pertencerem à chain vencedora.
+func (s *demoStore) pruneDangling() (pruned int64, err error) {
+	// Drena o SELECT por completo ANTES do DELETE: o pool tem uma única
+	// conexão (SetMaxOpenConns(1)), então um Exec com o cursor ainda aberto
+	// esperaria a conexão para sempre.
+	rows, err := s.db.Query(`SELECT height FROM blocks ORDER BY height`)
+	if err != nil {
+		return 0, err
+	}
+	var heights []uint64
+	for rows.Next() {
+		var h uint64
+		if err := rows.Scan(&h); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		heights = append(heights, h)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	var contig uint64
+	gap := false
+	for _, h := range heights {
+		if h != contig+1 {
+			gap = true
+			break
+		}
+		contig = h
+	}
+	if !gap {
+		return 0, nil
+	}
+	res, err := s.db.Exec(`DELETE FROM blocks WHERE height > ?`, contig)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 // truncateAbove descarta todo bloco com altura > height — usado só pelo
@@ -308,14 +373,23 @@ func bitsForHeight(s raceStore, rules params.Params, zeros uint, height uint64) 
 // openStoreForQuery abre o banco local (-db) ou conecta num node remoto
 // (-peer) — os dois viram o mesmo raceStore para o resto do comando.
 func openStoreForQuery(fs *flag.FlagSet, args []string, dbPath, peer *string) raceStore {
+	configPath := fs.String("config", "", "arquivo de configuração chave=valor (default: panda.conf, se existir)")
 	fs.Parse(args)
+	fromCLI := applyConfig(fs, *configPath)
 	if *dbPath == "" && *peer == "" {
 		fmt.Fprintln(os.Stderr, "informe -db mineracao.db (mesma máquina) ou -peer host:porta (rede)")
 		os.Exit(2)
 	}
 	if *dbPath != "" && *peer != "" {
-		fmt.Fprintln(os.Stderr, "use -db OU -peer, não os dois")
-		os.Exit(2)
+		// Um panda.conf de minerador traz db E peer juntos (é válido lá);
+		// para consulta, a cópia local é a fonte natural — só é erro se o
+		// próprio usuário pediu os dois na linha de comando.
+		if fromCLI["db"] && fromCLI["peer"] {
+			fmt.Fprintln(os.Stderr, "use -db OU -peer, não os dois")
+			os.Exit(2)
+		}
+		fmt.Fprintf(os.Stderr, "ℹ️  config traz db e peer: consultando o banco local %s\n", *dbPath)
+		*peer = ""
 	}
 	if *peer != "" {
 		store := dialRaceStore(*peer)

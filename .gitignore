@@ -20,6 +20,9 @@ go.work.sum
 # Env
 .env
 
+# Config local do node (panda.conf.example é o modelo commitado)
+panda.conf
+
 # SQLite database files / data dir
 /data/
 *.db

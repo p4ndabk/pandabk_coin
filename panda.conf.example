@@ -1,0 +1,37 @@
+# panda.conf — configuração do node PANDA (demo powdemo/blocks/ranking).
+# Copie para panda.conf no diretório onde você roda o node; os comandos o
+# encontram sozinhos (ou aponte outro caminho com -config).
+#
+# Formato: chave=valor, uma por linha, # comenta. As chaves são exatamente
+# os nomes dos flags — qualquer flag passado na linha de comando VENCE o
+# valor daqui. Cada subcomando usa só as chaves que conhece (blocks/ranking
+# aproveitam db/peer e ignoram o resto).
+
+# identidade do minerador (aparece nos logs e no placar)
+name=David
+
+# cópia local da chain (obrigatória para listen/peer — seu node nunca
+# depende de outro estar ligado)
+db=david.db
+
+# expor a chain para outros nodes da rede local
+listen=:9551
+
+# node remoto com quem reconciliar (um por enquanto; a rede P2P com vários
+# peers e descoberta automática chega no M4)
+#peer=192.168.1.10:9551
+
+# regras da corrida — os DOIS lados de um par listen/peer precisam usar as
+# mesmas (cada máquina tem seu próprio banco, não há adoção automática)
+spacing=1m
+zeros=10
+retarget=10
+
+# 0 = minerar sem parar, até Ctrl+C
+blocks=0
+
+# perfil de consenso: devnet (Argon2 64 MiB) ou test (1 MiB, só para testes)
+#profile=devnet
+
+# goroutines de mineração (1 core e ~64 MiB de RAM cada)
+#workers=1

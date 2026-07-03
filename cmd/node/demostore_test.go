@@ -23,10 +23,16 @@ func newTestStore(t *testing.T) *demoStore {
 }
 
 func testRow(height uint64, miner string, foundAt int64) demoBlockRow {
+	// prev encadeia com o id determinístico da altura anterior — insertBlock
+	// exige que todo bloco estenda o tip local.
+	prev := strings.Repeat("0", 64)
+	if height > 1 {
+		prev = strings.Repeat("a", 62) + itoa2(height-1)
+	}
 	return demoBlockRow{
 		height: height,
 		id:     strings.Repeat("a", 62) + itoa2(height),
-		prev:   strings.Repeat("0", 64),
+		prev:   prev,
 		bits:   0x20010000, nonce: height, miner: miner,
 		reward: 50 * params.CoinUnit, attempts: 10, durationMS: 1500, foundAt: foundAt,
 	}
@@ -133,7 +139,9 @@ func TestBitsForHeightDeterministic(t *testing.T) {
 
 func TestMinerBalanceAndRanking(t *testing.T) {
 	s := newTestStore(t)
-	for h, miner := range map[uint64]string{1: "alice", 2: "bob", 3: "alice"} {
+	miners := []string{"alice", "bob", "alice"} // inserts em ordem de altura (insertBlock encadeia)
+	for i, miner := range miners {
+		h := uint64(i + 1)
 		if err := s.insertBlock(testRow(h, miner, int64(1000+h))); err != nil {
 			t.Fatalf("insert %d: %v", h, err)
 		}

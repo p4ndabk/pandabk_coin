@@ -25,6 +25,10 @@ func main() {
 		runBlocks(os.Args[2:])
 	case "ranking":
 		runRanking(os.Args[2:])
+	case "genesis":
+		runGenesis(os.Args[2:])
+	case "wallet":
+		runWallet(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -43,6 +47,14 @@ Subcomandos disponíveis:
             vários mineradores competem pela mesma chain
   blocks    lista os últimos blocos de uma corrida (-db ou -peer)
   ranking   placar por minerador de uma corrida (-db ou -peer)
+  wallet    new: gera sua chave/endereço (wallet.json, 0600); show: reexibe
+
+Configuração por arquivo (menos flags repetidos):
+  copie panda.conf.example para panda.conf no diretório onde roda o node —
+  powdemo/blocks/ranking o encontram sozinhos (ou use -config caminho).
+  As chaves são os nomes dos flags (name=David, db=david.db, listen=:9551,
+  peer=..., spacing=1m, zeros=10, ...); flag na linha de comando vence.
+  Com o arquivo no lugar, "node powdemo" e "node blocks" bastam.
 
 Exemplos:
   node powdemo                                  # 3 blocos, perfil devnet (64 MiB/hash)

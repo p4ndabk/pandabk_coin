@@ -72,7 +72,9 @@ Fica de fora:
 2. `PrevHash` conhecido (senão → orphan pool + pedir o pai)
 3. Bloco serializado ≤ `params.MaxBlockSize` (256 KiB) — regra de consenso
    que protege o disco/banda do node caseiro
-4. Merkle root bate com as txs; Txs[0] é coinbase e é a única
+4. Merkle root bate com as txs; Txs[0] é coinbase e é a única; a coinbase
+   embute a altura do bloco no input (estilo BIP34 — garante txid único por
+   bloco, senão duas coinbases idênticas colidiriam no UTXO set)
 5. Cada input referencia UTXO existente e não gasto **dentro do mesmo bloco
    também** (double-spend intra-bloco)
 6. Assinatura ECDSA válida por input; `SHA-256(PubKey)[:20]` == PubKeyHash do
@@ -113,15 +115,16 @@ func (c *Chain) Close() error
 
 ## Critérios de aceite
 
-- [ ] `store.go`, `chain.go`, `validate.go`, `forkchoice.go`, `orphans.go` + testes
-- [ ] Gênesis devnet minerado e hardcoded em `params/genesis.go`
-- [ ] Teste: aceita sequência de blocos válidos (gerados programaticamente)
-- [ ] Teste: rejeita cada classe de bloco inválido (PoW ruim, merkle errada,
+- [x] `store.go`, `chain.go`, `validate.go`, `forkchoice.go`, `orphans.go` + testes
+- [x] Gênesis devnet minerado e hardcoded em `params/genesis.go` (comando dev
+      `node genesis`)
+- [x] Teste: aceita sequência de blocos válidos (gerados programaticamente)
+- [x] Teste: rejeita cada classe de bloco inválido (PoW ruim, merkle errada,
       timestamp fora, coinbase inflada, double-spend, UTXO inexistente,
       coinbase imatura) — um teste por regra
-- [ ] Teste de reorg: fork A(3 blocos) vs B(4 blocos) → muda para B e o UTXO
+- [x] Teste de reorg: fork A(3 blocos) vs B(4 blocos) → muda para B e o UTXO
       set final é idêntico a um replay do zero
-- [ ] Buckets documentados neste SPEC (substitui o critério de migration do
+- [x] Buckets documentados neste SPEC (substitui o critério de migration do
       BASE_SPEC — o node não usa GORM)
 
 ## Fora de escopo / não fazer
