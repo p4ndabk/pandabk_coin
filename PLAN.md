@@ -2,6 +2,8 @@
 
 > Plano de implementação do node PANDA Coin. Nada daqui foi implementado ainda —
 > este documento registra as decisões de design e a ordem de execução (M1–M5).
+> A visão do projeto em prosa, para leitura/áudio, está em
+> [PROPOSTA.md](PROPOSTA.md).
 
 ## Contexto
 

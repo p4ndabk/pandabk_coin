@@ -35,5 +35,8 @@ go.work.sum
 # OS
 .DS_Store
 
+# Logs de mineração local (powdemo)
+mineracao*.log
+
 # Local Claude Code settings
 .claude/settings.local.json
