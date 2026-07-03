@@ -1,0 +1,11 @@
+.git
+.claude
+data
+bin
+*.db
+*.db-journal
+.env
+.env.example
+README.md
+CLAUDE.md
+BASE_SPEC.md
