@@ -14,7 +14,7 @@ an interface — see Conventions).
 - SQLite via `github.com/glebarez/sqlite` (pure Go, no CGO required)
 - `github.com/joho/godotenv` — loads `.env` into environment variables
 
-Module path: `github.com/p4ndabk/base-project-go`
+Module path: `pandabk_coin`
 
 ## Architecture
 
@@ -157,6 +157,35 @@ No 100% coverage target — chasing that number forces tests on trivial code
   `internal/health/handler_test.go` for that pattern.
 - Use coverage as a signal to spot untested business logic, not as a target
   to hit.
+
+## PANDA node (`cmd/node`)
+
+Além do skeleton Gin/GORM acima, o repo abriga o full node da PANDA Coin —
+um binário standalone **sem Gin nem GORM** (storage próprio em bbolt), com
+build estático `CGO_ENABLED=0`. Plano e decisões: [PLAN.md](./PLAN.md);
+guia de uso: [TUTORIAL.md](./TUTORIAL.md).
+
+- Pacotes (dependência estrita `params ← core ← pow ← chain ← {mempool,
+  wallet} ← {p2p, miner} ← node ← cmd/node`): cada um com `SPEC.md` próprio
+  (seção "Conceito" didática — o usuário aprende blockchain pelo projeto).
+- Consenso: PoW Argon2id memory-hard (ID do bloco = SHA-256d ≠ hash de PoW),
+  UTXO, retarget estilo Bitcoin, MaxBlockSize 256 KiB como regra de consenso.
+- **Todo node minera por padrão** (1 worker, ~64 MiB); opt-out `-mine=false`.
+  A coinbase paga a wallet do datadir (criada no primeiro `run`).
+- RPC JSON localhost-only em `/rpc` para a CLI (`info`/`balance`/`send`) —
+  bbolt é single-writer, a CLI nunca abre o banco de um node em execução.
+- Config: flags > arquivo `panda.conf` (chave=valor, mesmas chaves dos
+  flags) > env `NODE_*` > defaults.
+- Testes seguem o padrão do repo (`service_test.go`-equivalente por pacote,
+  `go test -race` verde); princípio de produto: "um node em cada casa" —
+  todo trade-off se decide pela régua do node doméstico.
+
+```
+CGO_ENABLED=0 go build -o bin/panda-node ./cmd/node
+bin/panda-node run -profile devnet          # sobe o node (minera por padrão)
+bin/panda-node info|balance|send            # CLI via RPC localhost
+bin/panda-node powdemo                      # bancada didática de mineração
+```
 
 ## Commands
 

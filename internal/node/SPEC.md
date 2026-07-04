@@ -9,7 +9,9 @@
 
 O **full node** é a unidade de soberania da rede: ele valida tudo por conta
 própria (não confia em ninguém), guarda a cadeia inteira, serve outros nós e
-— opcionalmente — minera. "Rodar um node" é o ato que descentraliza a rede;
+**minera por padrão** com 1 worker (decisão de produto: com PoW memory-hard a
+segurança vem da quantidade de participantes — todo node contribuindo um
+pouco é o que descentraliza; desligar é opt-out via `--mine=false`). "Rodar um node" é o ato que descentraliza a rede;
 por isso o projeto inteiro existe para que este binário seja **um arquivo
 estático que roda em qualquer máquina** (`CGO_ENABLED=0`), leve o bastante
 para ficar ligado sem incomodar.
@@ -32,11 +34,14 @@ Entra:
   `getEnv` de `internal/config/config.go`, sem tocá-lo):
   `--datadir`/`NODE_DATADIR` (default `~/.panda`), `--listen`/`NODE_LISTEN`
   (`:9551`), `--rpc`/`NODE_RPC` (`127.0.0.1:8555`), `--peers`/`NODE_PEERS`
-  (lista separada por vírgula), `--mine`/`NODE_MINE`, `--miners`/`NODE_MINERS`
-  (default 1), `--profile`/`NODE_PROFILE` (`devnet`)
-- `node.go` — `Node` struct: abre chain, cria mempool, sobe p2p, sobe miner se
-  `--mine`; `Start`/`Stop` com graceful shutdown em SIGINT/SIGTERM (fechar
-  p2p → miner → bbolt, nessa ordem)
+  (lista separada por vírgula), `--mine`/`NODE_MINE` (**default true** —
+  opt-out), `--miners`/`NODE_MINERS` (default 1), `--profile`/`NODE_PROFILE`
+  (`devnet`)
+- `node.go` — `Node` struct: abre chain, cria mempool, sobe p2p, sobe miner
+  por padrão (a menos de `--mine=false`); se o datadir não tem wallet, o
+  primeiro `run` cria uma (0600) e loga o endereço — minerar por padrão exige
+  um destino para a coinbase; `Start`/`Stop` com graceful shutdown em
+  SIGINT/SIGTERM (fechar p2p → miner → bbolt, nessa ordem)
 - `rpc.go` — `net/http` stdlib (sem Gin), **bind exclusivo em localhost**:
   `getinfo` (altura, tip, peers, mempool, hashrate), `getbalance(address)`,
   `getnewutxos(address)` (para o wallet build), `sendrawtx(hex)`,
@@ -85,18 +90,21 @@ envelope do apierror, sem importá-lo).
 
 ## Critérios de aceite
 
-- [ ] `config.go`, `node.go`, `rpc.go` + `cmd/node/main.go` e testes do que
+- [x] `config.go`, `node.go`, `rpc.go` + `cmd/node/main.go` e testes do que
       tem lógica (config parsing, handlers RPC com chain de teste)
-- [ ] Demo do PLAN.md funciona: 2 nodes na mesma máquina, B sincroniza de A,
-      send de A aparece no saldo de B após confirmação
-- [ ] SIGINT fecha o bbolt limpo (reabrir sem erro)
-- [ ] RPC só em loopback; tentativa de bind externo falha com mensagem
-- [ ] `CGO_ENABLED=0 go build -o bin/node ./cmd/node` produz binário estático
-- [ ] Cross-compile verde para linux/darwin/windows em amd64 e arm64
-      (`GOOS=linux GOARCH=arm64 go build ./cmd/node` — Raspberry Pi é
-      cidadão de primeira classe, ver princípio "um node em cada casa")
+- [x] Demo do PLAN.md funciona — virou o teste de integração
+      `TestDemoTwoNodes`: 2 nodes in-process, B sincroniza de A, send de A
+      aparece no saldo de B após confirmação
+- [x] Stop fecha o bbolt limpo (teste reabre a chain sem erro; `run` liga o
+      SIGINT nesse mesmo caminho)
+- [x] RPC só em loopback; tentativa de bind externo falha com mensagem
+- [x] `CGO_ENABLED=0 go build -o bin/panda-node ./cmd/node` produz binário
+      estático
+- [x] Cross-compile verde para linux/darwin/windows em amd64 e arm64
+      (Raspberry Pi é cidadão de primeira classe)
 - [ ] Node ocioso (sem minerar) estável abaixo de ~128 MiB de RSS; minerando
-      com 1 worker, ~+64 MiB
+      com 1 worker, ~+64 MiB — medir numa sessão longa de devnet (não
+      verificável em teste unitário)
 
 ## Fora de escopo / não fazer
 

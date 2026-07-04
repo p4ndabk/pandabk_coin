@@ -84,13 +84,13 @@ func (mn *Miner) HashRate() float64   // hashes/s aproximado, p/ getinfo
 
 ## Critérios de aceite
 
-- [ ] `miner.go` + `miner_test.go`
-- [ ] Teste (perfil test, Argon2 1MiB, dificuldade mínima): minera um bloco
+- [x] `miner.go` + `miner_test.go`
+- [x] Teste (perfil test, Argon2 1MiB, dificuldade mínima): minera um bloco
       válido que a chain aceita
-- [ ] Teste: template inclui txs do mempool por fee rate e a coinbase soma
-      subsídio + taxas
-- [ ] Teste: sinal de novo tip cancela e remonta o template
-- [ ] Default de 1 worker documentado; `go test -race` verde
+- [x] Teste: template inclui txs do mempool por fee rate e a coinbase soma
+      subsídio + taxas (e o bloco do template é aceito pela chain)
+- [x] Teste: sinal de novo tip remonta o template (TipChanged + poll de tip)
+- [x] Default de 1 worker documentado; `go test -race` verde
 
 ## Fora de escopo / não fazer
 

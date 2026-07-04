@@ -1,5 +1,9 @@
 # Tutorial PANDA — sua wallet e seu node, passo a passo
 
+> A referência completa (instalação em todos os sistemas, rede multi-node,
+> Tor, todos os comandos) é a **[documentação oficial](docs/README.md)** —
+> este tutorial é a versão narrada para a primeira vez.
+
 > Guia para quem nunca rodou uma criptomoeda. Duas trilhas independentes:
 > **Parte 1** cria sua wallet (5 minutos). **Parte 2** coloca um node PANDA
 > para rodar na sua máquina e conversar com outros (15 minutos).
@@ -196,30 +200,57 @@ No mesmo diretório (o `panda.conf` é encontrado sozinho):
 
 ---
 
-## Parte 3 — Em que estágio isso está (leia antes de empolgar)
+## Parte 3 — O node de verdade (`node run`)
 
-A rede que você acabou de rodar é a **bancada didática** (`powdemo`): o proof
-of work, o retarget, a corrida entre mineradores e a reconciliação por
-trabalho acumulado são **reais** — mas os blocos não carregam transações, e a
-"carteira" do placar é um contador por nome de minerador no banco da demo,
-**ainda não ligada à sua wallet da Parte 1**.
+A Parte 2 usa a **bancada didática** (`powdemo`) — ótima para VER a
+mineração e a corrida, mas os blocos dela não carregam transações. O node
+completo já existe e liga tudo: chain validada por consenso, mempool, rede
+p2p e **mineração ligada por padrão pagando a SUA wallet**.
 
-Por baixo, o node de verdade já existe como biblioteca e está testado:
+```sh
+./bin/panda-node run
+```
 
-- **Consenso completo (M2)**: validação total de blocos (PoW, merkle,
-  timestamps, UTXOs, assinaturas, coinbase limitada a subsídio+taxas),
-  storage transacional, fork choice e reorg seguro. Aqui, "inserir no banco
-  na mão" não gera moedas — bloco só entra queimando trabalho e seguindo as
-  regras.
-- **Wallet e mempool (M3)**: a wallet da Parte 1 já constrói e assina
-  transações válidas; o mempool valida, ordena por taxa e sobrevive a reorgs.
+No primeiro `run`, o node cria sozinho uma wallet no datadir (default
+`~/.panda/wallet.json`, permissão 0600) e mostra o endereço — **faça backup
+dela** (Parte 1 explica por quê). Daí em diante:
 
-O que falta para a sua wallet receber recompensas de verdade:
+```sh
+./bin/panda-node info                          # altura, peers, hashrate
+./bin/panda-node balance                       # seu saldo (coinbases maduras)
+./bin/panda-node send -to P... -amount 1.5     # envia PANDA
+```
 
-- **M4 — rede P2P real**: handshake, gossip de blocos/transações e sync
-  inicial usando a chain do M2 (substitui o mecanismo da demo).
-- **M5 — o node completo**: `node run --mine` minerando com coinbase para o
-  SEU endereço, e `node balance` / `node send` falando com o node via RPC.
+Dois nodes na mesma máquina (ou dois computadores — troque 127.0.0.1 pelo
+IP real):
 
-Quando o M5 chegar, este tutorial ganha a parte final: enviar PANDA do seu
-node para o endereço de outra pessoa e ver o saldo confirmar do outro lado.
+```sh
+# terminal 1
+./bin/panda-node run -datadir ~/.panda/n1 -listen :9551 -rpc 127.0.0.1:8551
+# terminal 2
+./bin/panda-node run -datadir ~/.panda/n2 -listen :9552 -rpc 127.0.0.1:8552 -peers 127.0.0.1:9551
+```
+
+O segundo node baixa e **valida** cada bloco do primeiro (sync inicial),
+depois os dois competem minerando e convergem sempre para a cadeia com mais
+trabalho. Um `send` de um lado aparece no `balance` do outro após a
+confirmação (a recompensa de minerar leva 10 blocos para "maturar" antes de
+poder ser gasta — regra de consenso). Quem quiser só validar sem minerar:
+`-mine=false`. O `panda.conf` também funciona aqui (chaves `datadir`,
+`listen`, `rpc`, `peers`/`peer`, `mine`, `miners`, `profile`).
+
+## Parte 4 — Em que estágio isso está (honestidade obrigatória)
+
+Todos os 5 milestones do plano estão implementados e testados: consenso
+completo (bloco só entra queimando Argon2id e seguindo todas as regras —
+editar o banco na mão não gera moedas), wallet, mempool, rede p2p com sync
+inicial e o node completo acima. O que ainda é verdade:
+
+- **Isto é uma devnet**: rede de desenvolvimento, com economia de ciclos
+  curtos (bloco de ~60s, halving a cada 1.000). Os parâmetros econômicos
+  finais ainda estão em discussão (há inclinação para emissão constante sem
+  halving) — a chain atual pode ser zerada/reiniciada até a rede "de
+  verdade" nascer. Não trate PANDA de devnet como valor.
+- **Sem descoberta automática de peers além do gossip**: você ainda aponta
+  `-peers` para alguém que conhece (o address book propaga o resto).
+- **RPC só em localhost**, sem autenticação — é a interface do dono do node.

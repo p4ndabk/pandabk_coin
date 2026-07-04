@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"pandabk_coin/internal/wallet"
 )
@@ -19,7 +20,11 @@ func runWallet(args []string) {
 	sub := args[0]
 	fs := flag.NewFlagSet("wallet "+sub, flag.ExitOnError)
 	file := fs.String("file", "wallet.json", "arquivo da wallet")
+	datadir := fs.String("datadir", "", "usa a wallet do datadir de um node (<datadir>/wallet.json)")
 	fs.Parse(args[1:])
+	if *datadir != "" {
+		*file = filepath.Join(*datadir, "wallet.json")
+	}
 
 	switch sub {
 	case "new":
@@ -32,7 +37,7 @@ func runWallet(args []string) {
 		fmt.Printf("   endereço: %s\n\n", w.Address())
 		fmt.Println("⚠️  faça backup deste arquivo AGORA: quem perde a chave perde os fundos,")
 		fmt.Println("   e não existe recuperação — é assim que blockchain funciona.")
-	case "show":
+	case "show", "address":
 		w, err := wallet.Load(*file)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -40,7 +45,7 @@ func runWallet(args []string) {
 		}
 		fmt.Printf("endereço: %s\n", w.Address())
 	default:
-		fmt.Fprintf(os.Stderr, "subcomando de wallet desconhecido: %q (use new ou show)\n", sub)
+		fmt.Fprintf(os.Stderr, "subcomando de wallet desconhecido: %q (use new ou address)\n", sub)
 		os.Exit(2)
 	}
 }

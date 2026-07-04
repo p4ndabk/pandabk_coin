@@ -2,6 +2,7 @@ package chain
 
 import (
 	"bytes"
+	"encoding/json"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -258,6 +259,94 @@ func (c *Chain) LocatorHashes() [][32]byte {
 		return nil
 	})
 	return loc
+}
+
+// NextBits é o nBits que o PRÓXIMO bloco (filho da ponta atual) deve
+// declarar — o miner usa para montar o template; a validação usa a mesma
+// conta, então template e consenso nunca divergem.
+func (c *Chain) NextBits() (uint32, error) {
+	var bits uint32
+	err := c.db.View(func(btx *bolt.Tx) error {
+		id, _, err := tipState(btx)
+		if err != nil {
+			return err
+		}
+		tip, err := readHeader(btx, id)
+		if err != nil {
+			return err
+		}
+		bits, err = expectedBits(btx, tip, c.p)
+		return err
+	})
+	return bits, err
+}
+
+// HeadersSince serve o getheaders do p2p: acha no locator o bloco mais alto
+// que ainda está na cadeia ativa (o gênesis sempre está — mesma rede) e
+// devolve os headers seguintes, em ordem, até max.
+func (c *Chain) HeadersSince(locator [][32]byte, max int) ([]core.Header, error) {
+	var out []core.Header
+	err := c.db.View(func(btx *bolt.Tx) error {
+		hb := btx.Bucket(bucketHeight)
+		var start uint64 // fallback: do gênesis em diante
+		for _, id := range locator {
+			e, ok, err := getIndexEntry(btx, id)
+			if err != nil {
+				return err
+			}
+			if !ok || e.Status != statusActive {
+				continue
+			}
+			if raw := hb.Get(heightKey(e.Height)); len(raw) == 32 && bytes.Equal(raw, id[:]) {
+				start = e.Height
+				break
+			}
+		}
+		_, tipE, err := tipState(btx)
+		if err != nil {
+			return err
+		}
+		for h := start + 1; h <= tipE.Height && len(out) < max; h++ {
+			raw := hb.Get(heightKey(h))
+			if len(raw) != 32 {
+				break
+			}
+			var id [32]byte
+			copy(id[:], raw)
+			hdr, err := readHeader(btx, id)
+			if err != nil {
+				return err
+			}
+			out = append(out, hdr)
+		}
+		return nil
+	})
+	return out, err
+}
+
+// SaveAddrBook / LoadAddrBook persistem o address book do p2p no bucket meta
+// (JSON simples) — um node que reinicia rediscar a rede sem depender dos
+// seeds de novo.
+func (c *Chain) SaveAddrBook(addrs []string) error {
+	data, err := json.Marshal(addrs)
+	if err != nil {
+		return err
+	}
+	return c.db.Update(func(btx *bolt.Tx) error {
+		return btx.Bucket(bucketMeta).Put(keyAddrBook, data)
+	})
+}
+
+func (c *Chain) LoadAddrBook() ([]string, error) {
+	var addrs []string
+	err := c.db.View(func(btx *bolt.Tx) error {
+		raw := btx.Bucket(bucketMeta).Get(keyAddrBook)
+		if raw == nil {
+			return nil
+		}
+		return json.Unmarshal(raw, &addrs)
+	})
+	return addrs, err
 }
 
 // UTXOsByPKH varre o UTXO set filtrando por dono — a fonte do balance e da

@@ -29,7 +29,10 @@ var (
 
 var allBuckets = [][]byte{bucketBlocks, bucketIndex, bucketHeight, bucketUTXO, bucketUndo, bucketMeta}
 
-var keyTip = []byte("tip")
+var (
+	keyTip      = []byte("tip")
+	keyAddrBook = []byte("addrbook")
+)
 
 // Status de um bloco no blockIndex: ativo (na cadeia principal), lateral
 // (ramo que perde em trabalho — pode voltar num reorg) ou inválido (falhou a

@@ -19,6 +19,14 @@ func main() {
 		os.Exit(2)
 	}
 	switch os.Args[1] {
+	case "run":
+		runRun(os.Args[2:])
+	case "info":
+		runInfo(os.Args[2:])
+	case "balance":
+		runBalance(os.Args[2:])
+	case "send":
+		runSend(os.Args[2:])
 	case "powdemo":
 		runPowDemo(os.Args[2:])
 	case "blocks":
@@ -39,15 +47,29 @@ func main() {
 }
 
 func usage() {
-	fmt.Print(`node — full node da PANDA Coin (em construção)
+	fmt.Print(`node — full node da PANDA Coin
 
-Subcomandos disponíveis:
-  powdemo   minera blocos de demonstração com o proof of work real (Argon2id),
-            retarget de dificuldade e recompensa simulada; com -db/-peer,
-            vários mineradores competem pela mesma chain
+O node de verdade:
+  run       sobe o full node: chain validada (bbolt), mempool, rede p2p e
+            mineração LIGADA por padrão (1 worker; -mine=false desliga).
+            A coinbase paga a wallet do datadir (criada no primeiro run).
+  info      altura/tip/peers/mempool/hashrate do node em execução (via RPC)
+  balance   saldo de um endereço (default: a wallet do node)
+  send      envia PANDA: node send -to P... -amount 1.5
+  wallet    new: gera sua chave/endereço (0600); address: reexibe
+  genesis   (dev) minera o bloco 0 de um perfil
+
+Bancada didática (a demo que precedeu o node):
+  powdemo   corrida de mineradores com PoW real e recompensa simulada
   blocks    lista os últimos blocos de uma corrida (-db ou -peer)
   ranking   placar por minerador de uma corrida (-db ou -peer)
-  wallet    new: gera sua chave/endereço (wallet.json, 0600); show: reexibe
+
+Exemplo — dois nodes de verdade na mesma máquina:
+  node run -profile devnet -datadir ~/.panda/n1 -listen :9551 -rpc 127.0.0.1:8551
+  node run -profile devnet -datadir ~/.panda/n2 -listen :9552 -rpc 127.0.0.1:8552 -peers 127.0.0.1:9551
+  node info    -rpc 127.0.0.1:8552      # alturas convergem => sync ok
+  node balance -rpc 127.0.0.1:8551      # cresce conforme coinbases maturam
+  node send    -rpc 127.0.0.1:8551 -to P... -amount 1.5
 
 Configuração por arquivo (menos flags repetidos):
   copie panda.conf.example para panda.conf no diretório onde roda o node —

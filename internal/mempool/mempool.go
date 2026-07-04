@@ -180,9 +180,16 @@ func (m *Mempool) Len() int {
 
 // TopByFeeRate devolve transações em ordem de fee rate decrescente (empate:
 // quem chegou primeiro) até encher o orçamento de bytes — é assim que o
-// miner (M5) escolhe o que entra no template do próximo bloco. Uma tx que
-// não cabe é pulada, as menores seguintes ainda podem caber.
+// miner escolhe o que entra no template do próximo bloco. Uma tx que não
+// cabe é pulada, as menores seguintes ainda podem caber.
 func (m *Mempool) TopByFeeRate(maxBytes int) []*core.Tx {
+	txs, _ := m.Template(maxBytes)
+	return txs
+}
+
+// Template é o TopByFeeRate que o miner usa: as txs escolhidas E a soma das
+// taxas delas — o valor que a coinbase pode adicionar ao subsídio.
+func (m *Mempool) Template(maxBytes int) ([]*core.Tx, uint64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	entries := make([]*entry, 0, len(m.pool))
@@ -196,15 +203,27 @@ func (m *Mempool) TopByFeeRate(maxBytes int) []*core.Tx {
 		return entries[i].seq < entries[j].seq
 	})
 	var out []*core.Tx
+	var fees uint64
 	budget := maxBytes
 	for _, e := range entries {
 		if e.size > budget {
 			continue
 		}
 		out = append(out, e.tx)
+		fees += e.fee
 		budget -= e.size
 	}
-	return out
+	return out, fees
+}
+
+// Reserved diz se um outpoint já está comprometido por uma tx pendente —
+// a wallet do node usa para não gastar duas vezes o próprio dinheiro
+// enquanto a primeira tx ainda não confirmou.
+func (m *Mempool) Reserved(op core.OutPoint) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.spends[op]
+	return ok
 }
 
 // RemoveConfirmed sincroniza o pool com um bloco conectado: as transações

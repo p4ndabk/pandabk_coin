@@ -41,6 +41,12 @@ Compromissos concretos que derivam disso:
 ## Decisões de produto
 
 - **Rede P2P multi-nó desde o início** (descoberta de peers, sync, propagação, fork choice por trabalho acumulado)
+- **Todo node minera por padrão** (decisão 2026-07-03): `node run` sobe o miner
+  com 1 worker pagando a coinbase à wallet do datadir (criada automaticamente
+  no primeiro run); desligar é opt-out explícito (`--mine=false`/`NODE_MINE=0`).
+  Com PoW memory-hard a segurança vem da QUANTIDADE de participantes, não da
+  potência de cada um — "um node em cada casa" implica "cada casa minera um
+  pouco"
 - **PoW: Argon2id** via `golang.org/x/crypto/argon2` (já no go.mod) — pure Go, `CGO_ENABLED=0`
 - **Binário standalone `cmd/node`** com storage próprio
 - **Economia dev/ciclos curtos, configurável**: bloco ~60s, halving a cada 1.000 blocos, recompensa inicial 50 PANDA (5e9 subunidades, 1 PANDA = 1e8), retarget a cada 100 blocos → supply máximo ~100.000 PANDA. Tudo num pacote `params` com perfis (devnet agora, mainnet 10min depois)

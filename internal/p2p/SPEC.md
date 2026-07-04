@@ -106,16 +106,17 @@ func (s *Server) PeerCount() int
 
 ## Critérios de aceite
 
-- [ ] `message.go`, `codec.go`, `peer.go`, `server.go`, `sync.go` + testes
-- [ ] Teste unitário: handshake sobre `net.Pipe` (happy path, genesis
-      mismatch, version mismatch)
-- [ ] Teste: frame acima de 1 MiB rejeitado sem alocar
-- [ ] Integração: 2 nodes in-process — A com 50 blocos, B vazio → B sincroniza
+- [x] `message.go`, `codec.go`, `peer.go`, `server.go`, `sync.go` + testes
+- [x] Teste unitário: handshake sobre `net.Pipe` (happy path, genesis
+      mismatch, version mismatch, auto-conexão por nonce)
+- [x] Teste: frame acima de 1 MiB rejeitado sem alocar
+- [x] Integração: 2 nodes in-process — A com 50 blocos, B vazio → B sincroniza
       até a ponta de A
-- [ ] Integração: 2 nodes mineram forks separados, conectam, ambos convergem
+- [x] Integração: 2 nodes mineram forks separados, conectam, ambos convergem
       para a cadeia de mais trabalho
-- [ ] Integração: tx submetida em A aparece no mempool de B
-- [ ] `go test -race` verde
+- [x] Integração: tx submetida em A aparece no mempool de B (+ bloco novo
+      propaga via inv/getdata)
+- [x] `go test -race` verde
 
 ## Fora de escopo / não fazer
 

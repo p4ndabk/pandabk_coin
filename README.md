@@ -4,10 +4,13 @@ Projeto base em Go usando Gin + GORM, organizado por domínio (sem
 interfaces/repository). Detalhes de arquitetura e convenções em
 [CLAUDE.md](./CLAUDE.md).
 
-> 🐼 **PANDA Coin**: este repositório também abriga o node da PANDA
-> (`cmd/node`). Quer criar sua wallet e rodar um node? Comece pelo
-> **[TUTORIAL.md](./TUTORIAL.md)**. Plano e decisões de design em
-> [PLAN.md](./PLAN.md); visão do projeto em [PROPOSTA.md](./PROPOSTA.md).
+> 🐼 **PANDA Coin**: este repositório também abriga o full node da PANDA
+> (`cmd/node`) — binário estático, sem Gin/GORM, que valida a chain, fala
+> p2p e **minera por padrão** (`CGO_ENABLED=0 go build -o bin/panda-node
+> ./cmd/node && bin/panda-node run`). **Documentação oficial (instalação,
+> multi-node, Tor, referência de comandos): [docs/README.md](./docs/README.md)**.
+> Guia narrado para iniciantes: [TUTORIAL.md](./TUTORIAL.md). Plano e decisões
+> de design em [PLAN.md](./PLAN.md); visão em [PROPOSTA.md](./PROPOSTA.md).
 
 ## Requisitos
 
