@@ -112,6 +112,10 @@ func (n *Node) Start() error {
 	n.rpcSrv = &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = n.rpcSrv.Serve(n.rpcLn) }()
 
+	// pendentes do último shutdown voltam para a fila ANTES da rede subir —
+	// assim já estão lá quando um peer pedir nosso mempool no handshake
+	n.loadMempool()
+
 	if err := n.srv.Start(); err != nil {
 		_ = n.rpcSrv.Close()
 		return fmt.Errorf("node: porta P2P %s em uso? %w", n.cfg.Listen, err)
@@ -155,7 +159,8 @@ func (n *Node) ChainStatus() (height uint64, difficulty float64, nextSubsidy uin
 	return h, pow.Difficulty(tip.Bits, n.p), n.p.BlockSubsidy(h + 1)
 }
 
-// Stop desliga na ordem segura e fecha o bbolt por último.
+// Stop desliga na ordem segura e fecha o bbolt por último. As transações
+// ainda pendentes são salvas no datadir para voltar à fila no próximo boot.
 func (n *Node) Stop() error {
 	_ = n.srv.Stop()
 	if n.miner != nil {
@@ -167,6 +172,7 @@ func (n *Node) Stop() error {
 	if n.rpcSrv != nil {
 		_ = n.rpcSrv.Close()
 	}
+	n.saveMempool()
 	return n.chain.Close()
 }
 

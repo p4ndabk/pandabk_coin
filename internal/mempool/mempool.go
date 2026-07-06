@@ -202,6 +202,23 @@ func (m *Mempool) Entries() []Entry {
 	return out
 }
 
+// AllTxs devolve um snapshot das transações pendentes em ordem de chegada —
+// para persistir o mempool no shutdown e recarregá-lo no boot.
+func (m *Mempool) AllTxs() []*core.Tx {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	entries := make([]*entry, 0, len(m.pool))
+	for _, e := range m.pool {
+		entries = append(entries, e)
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].seq < entries[j].seq })
+	out := make([]*core.Tx, len(entries))
+	for i, e := range entries {
+		out[i] = e.tx
+	}
+	return out
+}
+
 func (m *Mempool) Len() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()

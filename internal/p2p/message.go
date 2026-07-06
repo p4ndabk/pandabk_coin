@@ -23,6 +23,10 @@ const (
 	TypeBlock      = "block"
 	TypeTx         = "tx"
 	TypeReject     = "reject"
+	// TypeGetMempool pede as pendentes do peer (respondidas como inv de txs —
+	// o fluxo inv→getdata→tx normal faz o resto). Binários antigos ignoram
+	// tipos desconhecidos, então a mensagem é retrocompatível.
+	TypeGetMempool = "getmempool"
 )
 
 // MsgVersion abre o handshake: genesis é o ID da rede (mismatch = redes
@@ -84,6 +88,10 @@ const MaxHeadersPerMsg = 2000
 
 // MaxAddrPerMsg limita o gossip de endereços.
 const MaxAddrPerMsg = 32
+
+// MaxMempoolInvPerMsg limita a resposta de getmempool (as de maior fee rate
+// primeiro — se o peer tem mais que isso pendente, o gossip normal completa).
+const MaxMempoolInvPerMsg = 1000
 
 func hashToHex(h [32]byte) string { return hex.EncodeToString(h[:]) }
 

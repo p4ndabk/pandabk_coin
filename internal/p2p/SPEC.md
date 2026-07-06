@@ -37,8 +37,8 @@ qualquer nó novo até a ponta — sem coordenador central.
 Entra:
 - `message.go` — envelope `{Type string, Payload json.RawMessage}`; tipos:
   `version`, `verack`, `ping`, `pong`, `getaddr`, `addr`, `inv`, `getdata`,
-  `getheaders`, `headers`, `block`, `tx`, `reject`. Blocos/txs viajam como
-  bytes canônicos base64 dentro do JSON
+  `getheaders`, `headers`, `block`, `tx`, `reject`, `getmempool`. Blocos/txs
+  viajam como bytes canônicos base64 dentro do JSON
 - `codec.go` — frame: 4 bytes big-endian de tamanho + JSON; frame máx 1 MiB;
   funciona sobre `io.ReadWriter` (testável com `net.Pipe`)
 - `peer.go` — loop por peer, estado do handshake, ping/pong a cada 2 min
@@ -84,6 +84,11 @@ Fica de fora:
 - Tx recebida → `mempool.Add`; se aceita, re-anunciar via `inv` aos demais
   peers (menos o de origem)
 - Novo bloco minerado/conectado localmente → `inv(block)` a todos os peers
+- `getmempool` (1× por conexão): enviado no handshake se já estamos em dia
+  com o peer, ou ao fim do IBD (antes disso as pendentes não validariam);
+  resposta = `inv` com até 1.000 txids (maior fee rate primeiro) — o fluxo
+  `getdata`→`tx` normal completa. Tipo desconhecido é ignorado, então
+  binários antigos seguem compatíveis
 
 ## Interface do pacote
 

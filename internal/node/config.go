@@ -117,3 +117,7 @@ func (c Config) WalletPath() string { return filepath.Join(c.DataDir, "wallet.js
 
 // ChainPath é o arquivo bbolt da chain dentro do datadir.
 func (c Config) ChainPath() string { return filepath.Join(c.DataDir, "chain.db") }
+
+// MempoolPath é onde as transações pendentes hibernam entre um Stop e o
+// próximo Start (o mempool.dat da PANDA).
+func (c Config) MempoolPath() string { return filepath.Join(c.DataDir, "mempool.json") }

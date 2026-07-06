@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -279,6 +280,88 @@ func TestDemoTwoNodes(t *testing.T) {
 		t.Fatalf("reabrir chain de B após Stop: %v", err)
 	}
 	reopened.Close()
+}
+
+// TestMempoolSurvivesRestartAndSyncsToPeers cobre o buraco "fechei o node e
+// a pendente sumiu": o Stop salva o mempool no datadir, o Start recarrega e
+// revalida, e um node novo puxa as pendentes do peer (getmempool) depois de
+// sincronizar a chain.
+func TestMempoolSurvivesRestartAndSyncsToPeers(t *testing.T) {
+	// fase 1: minerar fundos maduros no datadir e desligar
+	cfg := testConfig(t, true)
+	n1, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := n1.Start(); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "minerar 11 blocos", 30*time.Second, func() bool {
+		_, h, _ := n1.chain.Tip()
+		return h >= 11
+	})
+	if err := n1.Stop(); err != nil {
+		t.Fatal(err)
+	}
+
+	// fase 2: reabrir SEM minerar — a tx enviada fica pendente para sempre
+	cfg.Mine = false
+	n2, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := n2.Start(); err != nil {
+		t.Fatal(err)
+	}
+	var sendRes map[string]string
+	if err := rpcCall(t, n2.RPCAddr(), "sendtoaddress",
+		sendParams{To: "PEC69ijTweUjXAGF81hExKRRVctgNpJuXp", Amount: "1.5"}, &sendRes); err != nil {
+		t.Fatalf("sendtoaddress: %v", err)
+	}
+	txid := sendRes["txid"]
+	if err := n2.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(cfg.MempoolPath()); err != nil {
+		t.Fatalf("Stop deveria ter salvo %s: %v", cfg.MempoolPath(), err)
+	}
+
+	// fase 3: reabrir de novo — a pendente volta para a fila
+	n3, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := n3.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer n3.Stop()
+	var pending []mempoolTx
+	if err := rpcCall(t, n3.RPCAddr(), "getmempool", nil, &pending); err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 1 || pending[0].TxID != txid {
+		t.Fatalf("mempool não sobreviveu ao restart: %+v", pending)
+	}
+	if pending[0].ValuePanda == "" {
+		t.Fatalf("pendente sem valor: %+v", pending[0])
+	}
+
+	// fase 4: node zerado conecta, sincroniza a chain e puxa a pendente
+	b, err := New(testConfig(t, false, n3.P2PAddr()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer b.Stop()
+	waitFor(t, "B puxar a pendente do peer via getmempool", 30*time.Second, func() bool {
+		var got []mempoolTx
+		if err := rpcCall(t, b.RPCAddr(), "getmempool", nil, &got); err != nil {
+			return false
+		}
+		return len(got) == 1 && got[0].TxID == txid
+	})
 }
 
 func TestGetInfoAndBalanceHandlers(t *testing.T) {

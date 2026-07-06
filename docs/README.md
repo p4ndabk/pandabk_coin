@@ -174,7 +174,12 @@ Pronto. O que acontece:
   paga 50 PANDA para a sua wallet.
 - Se não existia wallet no datadir, ele criou uma e mostrou o endereço no
   log — **faça o backup**.
-- `Ctrl+C` encerra com segurança (nunca corrompe o banco).
+- `Ctrl+C` encerra com segurança (nunca corrompe o banco). As transações
+  ainda pendentes são salvas em `mempool.json` no datadir e voltam para a
+  fila no próximo boot (revalidadas — se confirmaram enquanto o node dormia,
+  são descartadas). Ao conectar num peer, os nodes também trocam as
+  pendentes que cada um conhece, então uma transação sobrevive enquanto
+  qualquer node da rede estiver de pé.
 
 Sozinho, seu node minera uma chain só sua. A graça começa na
 [seção 6](#6-rede-com-vários-nodes), conectando com os amigos.

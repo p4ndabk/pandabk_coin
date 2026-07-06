@@ -127,9 +127,12 @@ func (s *Server) blockArrived(pc *peerConn, id [32]byte) {
 	}
 	// Janela vazia: se o peer declarou mais trabalho do que temos AGORA,
 	// há mais história para buscar (ele tinha 5.000 blocos; cada headers
-	// traz 2.000). Se não, o IBD com este peer acabou.
+	// traz 2.000). Se não, o IBD com este peer acabou — agora sim as
+	// pendentes dele validam contra a nossa chain.
 	_, _, ourWork := s.chain.Tip()
 	if pc.work.Cmp(ourWork) > 0 {
 		s.startSync(pc)
+		return
 	}
+	s.askMempool(pc)
 }

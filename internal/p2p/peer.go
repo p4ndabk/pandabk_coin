@@ -96,9 +96,10 @@ type peerConn struct {
 
 	wmu sync.Mutex
 
-	mu       sync.Mutex
-	pingsOut int
-	sync     syncState
+	mu           sync.Mutex
+	pingsOut     int
+	sync         syncState
+	mempoolAsked bool // getmempool é um pedido único por conexão
 }
 
 func (pc *peerConn) send(typ string, payload any) error {

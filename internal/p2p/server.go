@@ -262,9 +262,14 @@ func (s *Server) setupPeer(conn net.Conn, addr string, outbound bool) {
 
 	_ = pc.send(TypeGetAddr, nil)
 	// Quem declarou mais trabalho acumulado tem a história que nos falta.
+	// Já estamos em dia com este peer? Então as pendentes dele nos
+	// interessam agora; se não, só depois do sync (senão as txs chegariam
+	// antes dos blocos cujos UTXOs elas gastam e seriam rejeitadas).
 	if _, ourHeight, ourWork := s.chain.Tip(); pc.work.Cmp(ourWork) > 0 {
 		log.Printf("⛓️  %s tem mais trabalho acumulado (altura %d vs nossa %d) — sincronizando", addr, remote.Height, ourHeight)
 		s.startSync(pc)
+	} else {
+		s.askMempool(pc)
 	}
 
 	s.readLoop(pc)
@@ -364,6 +369,8 @@ func (s *Server) handle(pc *peerConn, env Envelope) error {
 		return s.handleBlock(pc, env)
 	case TypeTx:
 		return s.handleTx(pc, env)
+	case TypeGetMempool:
+		return s.handleGetMempool(pc)
 	case TypeReject:
 		return nil // informativo; sem ban score nesta versão
 	case TypeVersion, TypeVerack:
@@ -541,6 +548,36 @@ func (s *Server) handleTx(pc *peerConn, env Envelope) error {
 		_ = pc.send(TypeReject, MsgReject{Reason: err.Error()})
 	}
 	return nil
+}
+
+// askMempool pede as pendentes do peer, uma única vez por conexão — no
+// handshake (se já estamos em dia com ele) ou quando o IBD termina. É assim
+// que uma tx pendente sobrevive enquanto QUALQUER node da rede estiver de pé.
+func (s *Server) askMempool(pc *peerConn) {
+	pc.mu.Lock()
+	asked := pc.mempoolAsked
+	pc.mempoolAsked = true
+	pc.mu.Unlock()
+	if !asked {
+		_ = pc.send(TypeGetMempool, nil)
+	}
+}
+
+// handleGetMempool anuncia nossas pendentes como inv de txs — o peer pede
+// via getdata só as que não conhece, como no gossip normal.
+func (s *Server) handleGetMempool(pc *peerConn) error {
+	entries := s.mp.Entries() // maior fee rate primeiro
+	if len(entries) > MaxMempoolInvPerMsg {
+		entries = entries[:MaxMempoolInvPerMsg]
+	}
+	if len(entries) == 0 {
+		return nil
+	}
+	items := make([]InvItem, len(entries))
+	for i, e := range entries {
+		items[i] = InvItem{Kind: KindTx, ID: hashToHex(e.TxID)}
+	}
+	return pc.send(TypeInv, MsgInv{Items: items})
 }
 
 // relayInv manda um inv a todos os peers, exceto a origem (nil = todos).
