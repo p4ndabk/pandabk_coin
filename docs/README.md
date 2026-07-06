@@ -113,17 +113,36 @@ na blockchain, trancadas para o seu endereço; a chave é o que destranca.
 ```
 🔑 wallet nova em wallet.json (permissão 0600)
    endereço: PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1
+
+📝 SUAS 12 PALAVRAS — anote NUM PAPEL, nesta ordem, e guarde bem:
+
+    1. degree       5. mango       9. blue
+    2. convince     6. lunar      10. hazard
+    3. shine        7. crawl      11. matrix
+    4. tourist      8. useful     12. tent
+```
+
+As **12 palavras** (padrão BIP39, o mesmo do Bitcoin) são o seu backup
+humano: em qualquer máquina, elas reconstroem exatamente a mesma carteira —
+
+```sh
+./panda-node wallet restore -file wallet.json palavra1 palavra2 ... palavra12
 ```
 
 Três regras que não têm exceção:
 
-1. **Faça backup do `wallet.json` agora** (pendrive, outro computador).
-   Perdeu o arquivo = perdeu os fundos. Não existe "esqueci a senha".
-2. **Nunca envie o arquivo para ninguém.** Quem tem o arquivo, gasta.
+1. **Anote as 12 palavras num papel agora** — elas aparecem uma única vez.
+   Papel guardado = carteira recuperável para sempre, mesmo se o computador
+   morrer. Não existe "esqueci a senha".
+2. **Nunca mostre as palavras (nem o `wallet.json`) a ninguém.** Quem lê,
+   gasta.
 3. O **endereço** (começa com `P`) é público — é ele que você compartilha
    para receber.
 
-Para rever seu endereço depois: `./panda-node wallet address`.
+Para rever seu endereço depois: `./panda-node wallet address`. Esqueceu de
+anotar? Enquanto o arquivo existir, `./panda-node wallet words` reexibe as
+palavras (elas ficam gravadas dentro do próprio `wallet.json` — mais um
+motivo para o arquivo nunca sair do seu controle).
 
 > 💡 Você nem precisa deste passo para começar: o `node run` cria uma wallet
 > sozinho no primeiro uso (em `~/.panda/wallet.json`). Este comando existe
@@ -211,6 +230,30 @@ gastável   5900 PANDA (coinbases maduras, nada pendente)
 
 A transação viaja pela rede, um minerador qualquer a inclui num bloco, e o
 destinatário vê o valor no `balance` dele — normalmente em 1–2 blocos.
+
+```sh
+./panda-node block 42        # explora um bloco por dentro (vazio = a ponta)
+```
+```
+bloco        42  (301 confirmação(ões))
+hash         9c01ab34...
+quando       2026-07-05 13:01:02
+dificuldade  4.00 (bits 1e040000)  nonce 1183
+transações   2
+
+tx 1  4f9e21c07a55...  (coinbase — a recompensa deste bloco)
+   →  PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1  10 PANDA
+
+tx 2  8a3bd0c1e99f...
+   gasta  7bc19d02aa14...:0
+   →  PEC69ijTweUjXAGF81hExKRRVctgNpJuXp  1.5 PANDA
+   →  PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1  8.49 PANDA
+```
+
+É a blockchain sem mistério: a primeira transação de todo bloco é a
+coinbase (quem minerou, recebendo a recompensa), e as demais mostram cada
+UTXO gasto e para onde os valores foram. No app de desktop, a aba
+**Blocos** faz o mesmo.
 
 ---
 
@@ -453,7 +496,10 @@ torsocks ./panda-node run -peers pandaxyzabc...def.onion:9551 -listen ""
 | `info` | altura, dificuldade, recompensa/halving, peers, mempool, hashrate | `-rpc` |
 | `balance` | saldo de um endereço | `-rpc`, `-address` (default: wallet do node) |
 | `send` | envia PANDA | `-rpc`, `-to P...`, `-amount 1.5`, `-fee-rate` |
-| `wallet new` | cria wallet (0600; nunca sobrescreve) | `-file` ou `-datadir` |
+| `block` | explora um bloco: coinbase, transações, valores, destinos | `-rpc`, altura ou hash (vazio = ponta) |
+| `wallet new` | cria wallet + 12 palavras de backup (0600; nunca sobrescreve) | `-file` ou `-datadir` |
+| `wallet restore` | recupera a wallet a partir das 12 palavras | `-file` ou `-datadir`, palavras como argumentos |
+| `wallet words` | reexibe as 12 palavras gravadas no wallet.json | `-file` ou `-datadir` |
 | `wallet address` | reexibe o endereço | `-file` ou `-datadir` |
 | `genesis` | (dev) minera o bloco 0 de um perfil | `-profile` |
 | `version` | versão do binário (do `build.conf` de quem compilou) | — |
@@ -536,11 +582,14 @@ minerar, portas — salva tudo e só então liga o node. A configuração fica e
 editável a qualquer momento pela aba **Ajustes**, com a opção de reiniciar
 o node na hora para aplicar.
 
-Cinco abas: **Início** (saldo, altura, dificuldade, peers, hashrate em
-cartões), **Carteira** (endereço + copiar, aviso de backup), **Enviar**
-(com confirmação), **Atividade** (os logs do node ao vivo: peers
-conectando, blocos, retarget, halving) e **Ajustes** (o panda.conf na
-interface).
+Seis abas: **Início** (o painel completo, estilo mempool.space caseiro:
+saldo, altura, dificuldade, peers, hashrate, tempo médio por bloco vs
+alvo, contagem para o retarget com previsão de subida/queda da
+dificuldade, contagem para o halving, os últimos blocos com quem minerou
+cada um, e a fila de transações esperando bloco), **Carteira** (endereço + copiar, aviso de backup), **Enviar**
+(com confirmação), **Blocos** (explorador: as transações dentro de cada
+bloco), **Atividade** (os logs do node ao vivo: peers conectando, blocos,
+retarget, halving) e **Ajustes** (o panda.conf na interface).
 
 ### Build
 

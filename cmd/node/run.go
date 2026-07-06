@@ -118,7 +118,35 @@ func runInfo(args []string) {
 	fmt.Printf("perfil       %s\naltura       %d\ntip          %s\n", info.Profile, info.Height, info.Tip)
 	fmt.Printf("dificuldade  %.2f (bits %s)\n", info.Difficulty, info.Bits)
 	fmt.Printf("alvo         1 bloco a cada %ds\n", info.SpacingSecs)
-	fmt.Printf("recompensa   %s PANDA (próximo halving no bloco %d)\n", info.RewardPanda, info.NextHalving)
+
+	var st struct {
+		AvgBlockSecs   float64 `json:"avg_block_seconds"`
+		AvgWindow      int     `json:"avg_window"`
+		BlocksToRetgt  uint64  `json:"blocks_to_retarget"`
+		RetargetFactor float64 `json:"retarget_factor"`
+		BlocksToHalve  uint64  `json:"blocks_to_halving"`
+		RewardPanda    string  `json:"reward_panda"`
+		NextReward     string  `json:"next_reward_panda"`
+	}
+	if err := rpcClient(*rpc, "getstats", nil, &st); err == nil {
+		if st.AvgWindow > 0 {
+			fmt.Printf("tempo médio  %.0fs por bloco (últimos %d)\n", st.AvgBlockSecs, st.AvgWindow)
+		}
+		retarget := fmt.Sprintf("retarget     em %d bloco(s)", st.BlocksToRetgt)
+		switch {
+		case st.RetargetFactor > 1.02:
+			retarget += fmt.Sprintf(" — dificuldade deve SUBIR ~×%.2f", st.RetargetFactor)
+		case st.RetargetFactor > 0 && st.RetargetFactor < 0.98:
+			retarget += fmt.Sprintf(" — dificuldade deve CAIR ~×%.2f", st.RetargetFactor)
+		case st.RetargetFactor > 0:
+			retarget += " — ritmo no alvo, dificuldade estável"
+		}
+		fmt.Println(retarget)
+		fmt.Printf("recompensa   %s PANDA — halving em %d bloco(s) (%s → %s)\n",
+			st.RewardPanda, st.BlocksToHalve, st.RewardPanda, st.NextReward)
+	} else {
+		fmt.Printf("recompensa   %s PANDA (próximo halving no bloco %d)\n", info.RewardPanda, info.NextHalving)
+	}
 	fmt.Printf("peers        %d\nmempool      %d tx(s)\n", info.Peers, info.Mempool)
 	if info.Mining {
 		fmt.Printf("minerando    sim (%.1f H/s)\n", info.HashRate)

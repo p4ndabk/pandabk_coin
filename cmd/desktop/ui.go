@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"log"
 	"sync"
@@ -34,6 +35,9 @@ type ui struct {
 
 	// referências vivas das abas (atualizadas via fyne.Do no loop)
 	cardValues    map[string]*canvas.Text
+	cardSubs      map[string]*canvas.Text
+	blocksList    *widget.Label
+	mempoolList   *widget.Label
 	consensusLine *widget.Label
 	walletAddr    *widget.Entry
 	walletTotal   *canvas.Text
@@ -63,6 +67,32 @@ type balanceResp struct {
 	BalancePanda   string `json:"balance_panda"`
 	SpendablePanda string `json:"spendable_panda"`
 	UTXOs          int    `json:"utxos"`
+}
+
+type statsResp struct {
+	AvgBlockSecs   float64 `json:"avg_block_seconds"`
+	AvgWindow      int     `json:"avg_window"`
+	TargetSecs     int64   `json:"target_seconds"`
+	BlocksToRetgt  uint64  `json:"blocks_to_retarget"`
+	RetargetFactor float64 `json:"retarget_factor"`
+	BlocksToHalve  uint64  `json:"blocks_to_halving"`
+	RewardPanda    string  `json:"reward_panda"`
+	NextReward     string  `json:"next_reward_panda"`
+}
+
+type recentResp struct {
+	Height  uint64 `json:"height"`
+	Time    int64  `json:"time"`
+	Txs     int    `json:"txs"`
+	Miner   string `json:"miner"`
+	Elapsed int64  `json:"elapsed"`
+}
+
+type mempoolResp struct {
+	TxID     string  `json:"txid"`
+	Size     int     `json:"size"`
+	FeePanda string  `json:"fee_panda"`
+	FeeRate  float64 `json:"fee_rate"`
 }
 
 // rpcAddr/setRPC protegem o endereço RPC: o refreshLoop lê de uma goroutine
@@ -105,11 +135,13 @@ func (u *ui) startAndBuild() {
 
 func (u *ui) build() {
 	u.cardValues = map[string]*canvas.Text{}
+	u.cardSubs = map[string]*canvas.Text{}
 
 	tabs := container.NewAppTabs(
 		container.NewTabItemWithIcon("Início", theme.HomeIcon(), u.statusTab()),
 		container.NewTabItemWithIcon("Carteira", theme.AccountIcon(), u.walletTab()),
 		container.NewTabItemWithIcon("Enviar", theme.MailSendIcon(), u.sendTab()),
+		container.NewTabItemWithIcon("Blocos", theme.SearchIcon(), u.blocksTab()),
 		container.NewTabItemWithIcon("Atividade", theme.ListIcon(), u.logsTab()),
 		container.NewTabItemWithIcon("Ajustes", theme.SettingsIcon(), u.settingsTab()),
 	)
@@ -170,6 +202,12 @@ func (u *ui) refresh() {
 	}
 	var bal balanceResp
 	balErr := rpcclient.CallTimeout(addr, "getbalance", nil, &bal, 3*time.Second)
+	var st statsResp
+	stErr := rpcclient.CallTimeout(addr, "getstats", nil, &st, 3*time.Second)
+	var recent []recentResp
+	recErr := rpcclient.CallTimeout(addr, "getrecentblocks", map[string]int{"count": 10}, &recent, 3*time.Second)
+	var pending []mempoolResp
+	mpErr := rpcclient.CallTimeout(addr, "getmempool", nil, &pending, 3*time.Second)
 
 	fyne.Do(func() {
 		u.setCard("height", formatUint(info.Height))
@@ -193,7 +231,48 @@ func (u *ui) refresh() {
 		if info.Address != "" && u.walletAddr.Text != info.Address {
 			u.walletAddr.SetText(info.Address)
 		}
+		if stErr == nil {
+			u.applyStats(st)
+		}
+		if recErr == nil {
+			u.blocksList.SetText(formatRecentBlocks(recent))
+		}
+		if mpErr == nil {
+			u.mempoolList.SetText(formatMempoolList(pending))
+		}
 	})
+}
+
+// applyStats preenche a fileira mempool.space-de-casa: ritmo real vs alvo,
+// previsão do retarget e contagem regressiva do halving.
+func (u *ui) applyStats(st statsResp) {
+	if st.AvgWindow > 0 {
+		u.setCard("avgtime", fmt.Sprintf("%.0fs", st.AvgBlockSecs))
+		u.setCardSub("avgtime", fmt.Sprintf("ALVO %dS · ÚLTIMOS %d BLOCOS", st.TargetSecs, st.AvgWindow))
+	} else {
+		u.setCard("avgtime", "—")
+		u.setCardSub("avgtime", fmt.Sprintf("ALVO %dS · AGUARDANDO BLOCOS", st.TargetSecs))
+	}
+	u.setCard("retarget", fmt.Sprintf("em %d", st.BlocksToRetgt))
+	switch {
+	case st.RetargetFactor > 1.02:
+		u.setCardSub("retarget", fmt.Sprintf("DIFICULDADE DEVE SUBIR ↑ ×%.2f", st.RetargetFactor))
+	case st.RetargetFactor > 0 && st.RetargetFactor < 0.98:
+		u.setCardSub("retarget", fmt.Sprintf("DIFICULDADE DEVE CAIR ↓ ×%.2f", st.RetargetFactor))
+	case st.RetargetFactor > 0:
+		u.setCardSub("retarget", "RITMO NO ALVO — ESTÁVEL")
+	default:
+		u.setCardSub("retarget", "BLOCOS (SEM DADOS AINDA)")
+	}
+	u.setCard("halving", fmt.Sprintf("em %d", st.BlocksToHalve))
+	u.setCardSub("halving", fmt.Sprintf("RECOMPENSA %s → %s PANDA", st.RewardPanda, st.NextReward))
+}
+
+func (u *ui) setCardSub(key, text string) {
+	if t, ok := u.cardSubs[key]; ok && t.Text != text {
+		t.Text = text
+		t.Refresh()
+	}
 }
 
 func (u *ui) setCard(key, value string) {

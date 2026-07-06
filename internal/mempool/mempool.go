@@ -172,6 +172,33 @@ func (m *Mempool) Get(txid [32]byte) (*core.Tx, bool) {
 	return e.tx, true
 }
 
+// Entry é a visão externa de uma transação pendente (para RPC/explorador).
+type Entry struct {
+	TxID    [32]byte
+	Size    int
+	Fee     uint64
+	FeeRate float64
+	Seq     uint64
+}
+
+// Entries devolve um snapshot das transações esperando bloco, da maior fee
+// rate para a menor (a ordem em que um minerador as pegaria).
+func (m *Mempool) Entries() []Entry {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]Entry, 0, len(m.pool))
+	for txid, e := range m.pool {
+		out = append(out, Entry{TxID: txid, Size: e.size, Fee: e.fee, FeeRate: e.feeRate, Seq: e.seq})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].FeeRate != out[j].FeeRate {
+			return out[i].FeeRate > out[j].FeeRate
+		}
+		return out[i].Seq < out[j].Seq
+	})
+	return out
+}
+
 func (m *Mempool) Len() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()

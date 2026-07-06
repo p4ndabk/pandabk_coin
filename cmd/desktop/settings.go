@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"pandabk_coin/internal/node"
+	"pandabk_coin/internal/wallet"
 )
 
 // confForm são os campos compartilhados entre a tela de primeira vez e a
@@ -103,21 +105,97 @@ func (u *ui) setupScreen() fyne.CanvasObject {
 			return
 		}
 		*u.cfg = v.apply(*u.cfg)
-		u.startAndBuild()
+		u.createWalletThenStart()
 	})
 	start.Importance = widget.HighImportance
 
-	note := caption("A wallet é criada automaticamente na pasta de dados — o app vai te lembrar do backup.", theme.Color(theme.ColorNamePlaceHolder))
+	restore := widget.NewButton("Já tenho 12 palavras (recuperar carteira)", func() {
+		u.restoreWalletDialog(form)
+	})
+
+	note := caption("Wallet nova? O app cria e mostra as 12 palavras de backup antes de começar.", theme.Color(theme.ColorNamePlaceHolder))
 
 	bg := canvas.NewRectangle(theme.Color(theme.ColorNameButton))
 	bg.CornerRadius = 14
 	card := container.NewStack(bg, container.NewPadded(container.NewPadded(container.NewVBox(
 		form.fields(),
 		start,
+		restore,
 		note,
 	))))
 
 	return container.NewVScroll(container.NewPadded(container.NewVBox(title, sub, card)))
+}
+
+// createWalletThenStart garante o ritual das 12 palavras: se vai minerar e
+// ainda não existe wallet, cria AQUI e obriga o dono a ver as palavras
+// antes de o node subir. Cancelou = apaga a wallet recém-criada (sem
+// fundos ainda) e volta — nunca fica uma carteira sem backup anotado.
+func (u *ui) createWalletThenStart() {
+	path := u.cfg.WalletPath()
+	if _, err := os.Stat(path); err == nil || !u.cfg.Mine {
+		u.startAndBuild()
+		return
+	}
+	w, phrase, err := wallet.NewWithMnemonic(path)
+	if err != nil {
+		dialog.ShowError(err, u.win)
+		return
+	}
+	words := widget.NewLabel(numberedMnemonic(phrase))
+	words.TextStyle = fyne.TextStyle{Monospace: true}
+	warn := widget.NewLabel("Anote NUM PAPEL, nesta ordem. Elas aparecem UMA única vez e recuperam sua carteira em qualquer máquina. Quem lê as palavras leva os fundos.")
+	warn.Wrapping = fyne.TextWrapWord
+	addr := caption("endereço: "+w.Address(), theme.Color(theme.ColorNamePlaceHolder))
+	content := container.NewVBox(words, addr, warn)
+
+	dialog.NewCustomConfirm("Suas 12 palavras", "Anotei as palavras", "Cancelar", content, func(ok bool) {
+		if !ok {
+			_ = os.Remove(path) // recém-criada, sem fundos: melhor apagar que ficar sem backup
+			return
+		}
+		u.startAndBuild()
+	}, u.win).Show()
+}
+
+// restoreWalletDialog recupera a carteira a partir das 12 palavras — o
+// caminho de quem trocou de máquina.
+func (u *ui) restoreWalletDialog(form *confForm) {
+	entry := widget.NewMultiLineEntry()
+	entry.SetPlaceHolder("as 12 palavras, separadas por espaço")
+	entry.Wrapping = fyne.TextWrapWord
+	entry.SetMinRowsVisible(3)
+	dialog.NewCustomConfirm("Recuperar carteira", "Recuperar", "Cancelar", entry, func(ok bool) {
+		if !ok {
+			return
+		}
+		v, err := form.values()
+		if err != nil {
+			dialog.ShowError(err, u.win)
+			return
+		}
+		cfg2 := v.apply(*u.cfg)
+		w, err := wallet.Restore(cfg2.WalletPath(), entry.Text)
+		if err != nil {
+			dialog.ShowError(err, u.win)
+			return
+		}
+		dialog.ShowInformation("Carteira recuperada", "endereço: "+w.Address()+"\n\nAgora é só clicar em Começar.", u.win)
+	}, u.win).Show()
+}
+
+// numberedMnemonic formata as palavras numeradas em 3 colunas.
+func numberedMnemonic(phrase string) string {
+	words := strings.Fields(phrase)
+	var b strings.Builder
+	for row := 0; row < 4; row++ {
+		for col := 0; col < 3; col++ {
+			i := row + col*4
+			fmt.Fprintf(&b, "%2d. %-12s", i+1, words[i])
+		}
+		b.WriteByte('\n')
+	}
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // ── Aba Ajustes ─────────────────────────────────────────────────────────────

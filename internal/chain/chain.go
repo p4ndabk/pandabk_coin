@@ -225,6 +225,39 @@ func (c *Chain) GetBlock(id [32]byte) (*core.Block, error) {
 	return blk, err
 }
 
+// HeaderByHeight devolve o header do bloco ATIVO na altura h (barato: não
+// decodifica as transações — para estatísticas de tempo/dificuldade).
+func (c *Chain) HeaderByHeight(h uint64) (core.Header, error) {
+	var hdr core.Header
+	err := c.db.View(func(btx *bolt.Tx) error {
+		raw := btx.Bucket(bucketHeight).Get(heightKey(h))
+		if len(raw) != 32 {
+			return ErrBlockNotFound
+		}
+		var id [32]byte
+		copy(id[:], raw)
+		var err error
+		hdr, err = readHeader(btx, id)
+		return err
+	})
+	return hdr, err
+}
+
+// BlockIDByHeight devolve o ID do bloco da cadeia ATIVA na altura h — a
+// porta de entrada do explorador ("me mostra o bloco 42").
+func (c *Chain) BlockIDByHeight(h uint64) ([32]byte, error) {
+	var id [32]byte
+	err := c.db.View(func(btx *bolt.Tx) error {
+		raw := btx.Bucket(bucketHeight).Get(heightKey(h))
+		if len(raw) != 32 {
+			return ErrBlockNotFound
+		}
+		copy(id[:], raw)
+		return nil
+	})
+	return id, err
+}
+
 // LocatorHashes resume a cadeia ativa para o sync do p2p: os últimos 10
 // blocos um a um, depois espaçamento dobrando, terminando no gênesis — um
 // peer acha o último ancestral em comum em O(log n) mensagens.

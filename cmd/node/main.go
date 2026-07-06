@@ -31,6 +31,8 @@ func main() {
 		runBalance(os.Args[2:])
 	case "send":
 		runSend(os.Args[2:])
+	case "block":
+		runBlock(os.Args[2:])
 	case "powdemo":
 		runPowDemo(os.Args[2:])
 	case "blocks":
@@ -62,7 +64,10 @@ O node de verdade:
   info      altura/tip/peers/mempool/hashrate do node em execução (via RPC)
   balance   saldo de um endereço (default: a wallet do node)
   send      envia PANDA: node send -to P... -amount 1.5
-  wallet    new: gera sua chave/endereço (0600); address: reexibe
+  block     explora um bloco por dentro: node block 42 | node block <hash>
+            (vazio = a ponta) — coinbase, transações, valores e destinos
+  wallet    new: gera chave + 12 palavras de backup (BIP39); restore: recupera
+            a carteira só com as palavras; address: reexibe o endereço
   genesis   (dev) minera o bloco 0 de um perfil
   version   versão do binário (definida no build.conf de quem compilou)
 

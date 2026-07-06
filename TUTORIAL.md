@@ -56,9 +56,14 @@ Você verá algo assim:
 🔑 wallet nova em wallet.json (permissão 0600)
    endereço: PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1
 
-⚠️  faça backup deste arquivo AGORA: quem perde a chave perde os fundos,
-   e não existe recuperação — é assim que blockchain funciona.
+📝 SUAS 12 PALAVRAS — anote NUM PAPEL, nesta ordem, e guarde bem:
+    1. degree       5. mango       9. blue
+    ...
 ```
+
+As **12 palavras** (padrão BIP39, o mesmo de carteiras Bitcoin) aparecem
+**uma única vez** e reconstroem sua carteira em qualquer máquina:
+`panda-node wallet restore -file wallet.json palavra1 ... palavra12`.
 
 O que aconteceu:
 
@@ -71,13 +76,16 @@ O que aconteceu:
 
 ### Backup (não pule isto)
 
-Copie `wallet.json` para pelo menos um lugar fora desta máquina — um pendrive
-guardado, outro computador, um gerenciador de senhas. Regras de ouro:
+O backup principal são as **12 palavras num papel** — guardadas, elas
+recuperam a carteira mesmo que o computador vire fumaça. O `wallet.json` é
+o cache local da chave; copiá-lo para um pendrive também vale. Regras de ouro:
 
-- **Perdeu o arquivo = perdeu os fundos.** Não existe "esqueci a senha",
-  suporte, nem autoridade que recupere. É o preço da descentralização.
-- Quem **copia** o arquivo passa a poder gastar seus fundos. Trate o backup
-  com o mesmo cuidado que dinheiro vivo.
+- **Perdeu as palavras E o arquivo = perdeu os fundos.** Não existe "esqueci
+  a senha", suporte, nem autoridade que recupere. É o preço da
+  descentralização.
+- Quem **lê as palavras** (ou copia o arquivo) passa a poder gastar seus
+  fundos. Trate como dinheiro vivo: papel em lugar seguro, nunca em foto ou
+  e-mail.
 
 ### Conferindo depois
 

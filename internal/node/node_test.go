@@ -255,4 +255,49 @@ func TestGetInfoAndBalanceHandlers(t *testing.T) {
 		!strings.Contains(err.Error(), "desconhecido") {
 		t.Fatalf("método desconhecido: %v", err)
 	}
+
+	// getblock: sem params = ponta (aqui, o gênesis); por altura idem; a
+	// coinbase aparece com valor e endereço legíveis.
+	var blk blockResult
+	if err := rpcCall(t, n.RPCAddr(), "getblock", nil, &blk); err != nil {
+		t.Fatal(err)
+	}
+	if blk.Height != 0 || blk.Confirmations != 1 || len(blk.Txs) != 1 || !blk.Txs[0].Coinbase {
+		t.Fatalf("getblock (ponta): %+v", blk)
+	}
+	h := uint64(0)
+	var byH blockResult
+	if err := rpcCall(t, n.RPCAddr(), "getblock", blockParams{Height: &h}, &byH); err != nil || byH.Hash != blk.Hash {
+		t.Fatalf("getblock por altura: %v (%s != %s)", err, byH.Hash, blk.Hash)
+	}
+	if len(blk.Txs[0].Outs) != 1 || blk.Txs[0].Outs[0].Address == "" {
+		t.Fatalf("coinbase do gênesis sem output legível: %+v", blk.Txs[0])
+	}
+	bad := uint64(99)
+	if err := rpcCall(t, n.RPCAddr(), "getblock", blockParams{Height: &bad}, nil); err == nil {
+		t.Fatal("altura inexistente deveria dar erro")
+	}
+
+	// O painel: getstats/getrecentblocks/getmempool numa chain só-gênesis.
+	var st statsResult
+	if err := rpcCall(t, n.RPCAddr(), "getstats", nil, &st); err != nil {
+		t.Fatal(err)
+	}
+	if st.AvgWindow != 0 || st.BlocksToHalve != 1000 || st.BlocksToRetgt != 100 || st.TargetSecs != 60 {
+		t.Fatalf("getstats: %+v", st)
+	}
+	if st.RewardPanda != "50" || st.NextRewardPanda != "25" {
+		t.Fatalf("recompensas do halving: %+v", st)
+	}
+	var recent []recentBlock
+	if err := rpcCall(t, n.RPCAddr(), "getrecentblocks", nil, &recent); err != nil {
+		t.Fatal(err)
+	}
+	if len(recent) != 1 || recent[0].Height != 0 || recent[0].Miner == "" {
+		t.Fatalf("getrecentblocks: %+v", recent)
+	}
+	var pending []mempoolTx
+	if err := rpcCall(t, n.RPCAddr(), "getmempool", nil, &pending); err != nil || len(pending) != 0 {
+		t.Fatalf("getmempool: %v %v", pending, err)
+	}
 }

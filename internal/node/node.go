@@ -62,11 +62,15 @@ func New(cfg Config) (*Node, error) {
 			return nil, err
 		}
 	} else if cfg.Mine {
-		if n.wallet, err = wallet.New(cfg.WalletPath()); err != nil {
+		var phrase string
+		if n.wallet, phrase, err = wallet.NewWithMnemonic(cfg.WalletPath()); err != nil {
 			c.Close()
 			return nil, err
 		}
-		log.Printf("🔑 wallet nova criada em %s — endereço: %s (faça backup!)", cfg.WalletPath(), n.wallet.Address())
+		log.Printf("🔑 wallet nova criada em %s — endereço: %s", cfg.WalletPath(), n.wallet.Address())
+		log.Printf("📝 SUAS 12 PALAVRAS (exibidas UMA vez — anote num papel, nesta ordem):")
+		log.Printf("   %s", phrase)
+		log.Printf("⚠️  as palavras recuperam a carteira em qualquer máquina (wallet restore); quem as lê leva os fundos")
 	}
 
 	n.srv = p2p.NewServer(p2p.Config{

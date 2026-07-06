@@ -27,18 +27,23 @@ var (
 )
 
 type Wallet struct {
-	priv *ecdsa.PrivateKey
-	pub  []byte // comprimida, 33 bytes
-	pkh  [20]byte
-	addr string
+	priv     *ecdsa.PrivateKey
+	pub      []byte // comprimida, 33 bytes
+	pkh      [20]byte
+	addr     string
+	mnemonic string // 12 palavras, se a wallet nasceu/foi restaurada delas
 }
 
 // walletFile é o formato em disco (ver SPEC): chave privada PKCS8/base64,
 // pública e endereço redundantes para inspeção e checagem de consistência.
+// O mnemonic (se houver) fica no MESMO arquivo por decisão de conveniência:
+// quem lê o arquivo já leva a chave de qualquer forma — mas fica legível
+// por humanos, então o arquivo merece o mesmo sigilo de sempre.
 type walletFile struct {
 	PrivateKey string `json:"private_key"`
 	PublicKey  string `json:"public_key"`
 	Address    string `json:"address"`
+	Mnemonic   string `json:"mnemonic,omitempty"`
 }
 
 func fromKey(priv *ecdsa.PrivateKey) *Wallet {
@@ -49,13 +54,22 @@ func fromKey(priv *ecdsa.PrivateKey) *Wallet {
 
 // New gera uma chave nova (crypto/rand, sempre) e a salva em path com 0600.
 // Arquivo existente é erro: sobrescrever uma wallet destruiria a chave — e
-// com ela os fundos — sem volta.
+// com ela os fundos — sem volta. Prefira NewWithMnemonic: mesma segurança,
+// com backup humano de 12 palavras.
 func New(path string) (*Wallet, error) {
 	priv, err := core.GenerateKey()
 	if err != nil {
 		return nil, err
 	}
+	return saveKey(path, priv, "")
+}
+
+// saveKey serializa a chave (PKCS8) e grava o wallet.json com as proteções
+// de sempre: 0600 e O_EXCL (nunca sobrescreve). mnemonic vazio = wallet de
+// chave aleatória (sem frase).
+func saveKey(path string, priv *ecdsa.PrivateKey, mnemonic string) (*Wallet, error) {
 	w := fromKey(priv)
+	w.mnemonic = mnemonic
 	blob, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
 		return nil, err
@@ -64,6 +78,7 @@ func New(path string) (*Wallet, error) {
 		PrivateKey: base64.StdEncoding.EncodeToString(blob),
 		PublicKey:  hex.EncodeToString(w.pub),
 		Address:    w.addr,
+		Mnemonic:   mnemonic,
 	}, "", "  ")
 	if err != nil {
 		return nil, err
@@ -122,9 +137,22 @@ func Load(path string) (*Wallet, error) {
 	if wf.PublicKey != hex.EncodeToString(w.pub) || wf.Address != w.addr {
 		return nil, fmt.Errorf("%w: pública/endereço não derivam da chave privada", ErrCorrupt)
 	}
+	if wf.Mnemonic != "" {
+		// A frase gravada TEM que derivar exatamente esta chave — uma frase
+		// trocada no arquivo enganaria o dono na hora de recuperar.
+		mpriv, mnemonic, err := keyFromMnemonic(wf.Mnemonic)
+		if err != nil || mpriv.D.Cmp(priv.D) != 0 {
+			return nil, fmt.Errorf("%w: as 12 palavras do arquivo não derivam a chave privada", ErrCorrupt)
+		}
+		w.mnemonic = mnemonic
+	}
 	return w, nil
 }
 
 func (w *Wallet) Address() string      { return w.addr }
 func (w *Wallet) PubKeyHash() [20]byte { return w.pkh }
 func (w *Wallet) PubKey() []byte       { return w.pub }
+
+// Mnemonic devolve as 12 palavras da wallet ("" se ela nasceu de chave
+// aleatória, antes do backup por frase existir).
+func (w *Wallet) Mnemonic() string { return w.mnemonic }

@@ -90,6 +90,15 @@ dependências.)
 - [x] Teste: fundos insuficientes e troco-poeira
 - [x] `node wallet new` (antecipado do M5) imprime endereço `P...` que
       round-tripa no decode; `node wallet show` reexibe
+- [x] **Backup de 12 palavras (2026-07-05)**: `mnemonic.go` implementa BIP39
+      (lista inglesa de 2048 palavras embutida; 128 bits + checksum) e a
+      derivação SLIP-0010 da chave-mestra Nist256p1 — padrões abertos, as
+      mesmas palavras recuperam a carteira em qualquer linguagem/lib que
+      siga as specs (Python: `mnemonic` + qualquer SLIP-0010). Testes cravam
+      os vetores oficiais (Trezor BIP39; SLIP-0010 vector 1 nist256p1).
+      `NewWithMnemonic` devolve a frase UMA vez; `Restore` reconstrói de
+      frase (O_EXCL, nunca sobrescreve); CLI `wallet new`/`wallet restore`;
+      wallets antigas (chave aleatória) seguem válidas — só não têm frase.
 
 ## Fora de escopo / não fazer
 

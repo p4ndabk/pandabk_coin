@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -18,13 +19,16 @@ import (
 )
 
 // card monta um cartão clean: número grande em cima, rótulo pequeno em
-// cinza embaixo, sobre um retângulo de cantos arredondados.
+// cinza embaixo, sobre um retângulo de cantos arredondados. O rótulo também
+// fica atualizável (cardSubs) — os cartões de retarget/halving usam.
 func (u *ui) card(key, label string) fyne.CanvasObject {
 	value := bigNumber("—")
 	u.cardValues[key] = value
+	sub := caption(strings.ToUpper(label), u.muted())
+	u.cardSubs[key] = sub
 	bg := canvas.NewRectangle(theme.Color(theme.ColorNameButton))
 	bg.CornerRadius = 14
-	content := container.NewVBox(value, caption(strings.ToUpper(label), u.muted()))
+	content := container.NewVBox(value, sub)
 	return container.NewStack(bg, container.NewPadded(container.NewPadded(content)))
 }
 
@@ -47,9 +51,21 @@ func (u *ui) statusTab() fyne.CanvasObject {
 		u.card("hashrate", "hashes por segundo"),
 		u.card("mempool", "transações na fila"),
 	)
+	// segunda fileira: o mempool.space de casa — ritmo, retarget e halving
+	statsGrid := container.NewGridWithColumns(3,
+		u.card("avgtime", "tempo médio por bloco"),
+		u.card("retarget", "próximo retarget"),
+		u.card("halving", "próximo halving"),
+	)
 
 	u.consensusLine = widget.NewLabel("")
 	u.consensusLine.Wrapping = fyne.TextWrapWord
+
+	u.blocksList = widget.NewLabel("…")
+	u.blocksList.TextStyle = fyne.TextStyle{Monospace: true}
+	u.mempoolList = widget.NewLabel("…")
+	u.mempoolList.TextStyle = fyne.TextStyle{Monospace: true}
+	u.mempoolList.Wrapping = fyne.TextWrapWord
 
 	title := canvas.NewText("PANDA", theme.Color(theme.ColorNameForeground))
 	title.TextSize = 30
@@ -61,7 +77,14 @@ func (u *ui) statusTab() fyne.CanvasObject {
 		modeLine,
 		widget.NewSeparator(),
 		grid,
+		statsGrid,
 		u.consensusLine,
+		widget.NewSeparator(),
+		caption("ÚLTIMOS BLOCOS", u.muted()),
+		u.blocksList,
+		widget.NewSeparator(),
+		caption("NA FILA — ESPERANDO UM BLOCO", u.muted()),
+		u.mempoolList,
 	)))
 }
 
@@ -178,6 +201,129 @@ func (u *ui) confirmAndSend(to, amount, fee *widget.Entry) {
 			})
 		}()
 	}, u.win).Show()
+}
+
+// formatRecentBlocks é a régua de blocos do mempool.space, em texto: mais
+// novo primeiro, com o intervalo real entre blocos à vista.
+func formatRecentBlocks(blocks []recentResp) string {
+	if len(blocks) == 0 {
+		return "ainda sem blocos"
+	}
+	var s strings.Builder
+	for _, b := range blocks {
+		gap := "     "
+		if b.Elapsed > 0 {
+			gap = fmt.Sprintf("+%s", (time.Duration(b.Elapsed) * time.Second).String())
+		}
+		miner := b.Miner
+		if len(miner) > 12 {
+			miner = miner[:12] + "…"
+		}
+		fmt.Fprintf(&s, "#%-6d %s  %d tx  %-7s %s\n",
+			b.Height, time.Unix(b.Time, 0).Format("15:04:05"), b.Txs, gap, miner)
+	}
+	return strings.TrimRight(s.String(), "\n")
+}
+
+// formatMempoolList é a sala de espera: quem está aguardando um minerador.
+func formatMempoolList(txs []mempoolResp) string {
+	if len(txs) == 0 {
+		return "nenhuma — tudo confirmado ✅"
+	}
+	var s strings.Builder
+	for i, tx := range txs {
+		if i == 8 {
+			fmt.Fprintf(&s, "… e mais %d", len(txs)-8)
+			break
+		}
+		fmt.Fprintf(&s, "%s…  %d bytes  taxa %s PANDA (%.1f/byte)\n",
+			tx.TxID[:16], tx.Size, tx.FeePanda, tx.FeeRate)
+	}
+	return strings.TrimRight(s.String(), "\n")
+}
+
+// ── Blocos (explorador) ─────────────────────────────────────────────────────
+
+type blockResp struct {
+	Height        uint64  `json:"height"`
+	Hash          string  `json:"hash"`
+	Time          int64   `json:"time"`
+	Difficulty    float64 `json:"difficulty"`
+	Size          int     `json:"size"`
+	Confirmations uint64  `json:"confirmations"`
+	Txs           []struct {
+		TxID     string `json:"txid"`
+		Coinbase bool   `json:"coinbase"`
+		Ins      []struct {
+			TxID  string `json:"txid"`
+			Index uint32 `json:"index"`
+		} `json:"ins"`
+		Outs []struct {
+			ValuePanda string `json:"value_panda"`
+			Address    string `json:"address"`
+		} `json:"outs"`
+	} `json:"txs"`
+}
+
+func (u *ui) blocksTab() fyne.CanvasObject {
+	query := widget.NewEntry()
+	query.SetPlaceHolder("altura (ex.: 42) ou hash — vazio = a ponta")
+
+	out := widget.NewLabel("Digite uma altura e veja o bloco por dentro: quem minerou, as transações, valores e destinos.")
+	out.TextStyle = fyne.TextStyle{Monospace: true}
+	out.Wrapping = fyne.TextWrapWord
+	scroll := container.NewVScroll(out)
+
+	show := func() {
+		params := map[string]any{}
+		if q := strings.TrimSpace(query.Text); q != "" {
+			if h, err := strconv.ParseUint(q, 10, 64); err == nil {
+				params["height"] = h
+			} else {
+				params["hash"] = q
+			}
+		}
+		go func() {
+			var b blockResp
+			err := rpcclient.Call(u.rpcAddr(), "getblock", params, &b)
+			fyne.Do(func() {
+				if err != nil {
+					out.SetText("⚠️ " + err.Error())
+					return
+				}
+				out.SetText(formatBlock(b))
+			})
+		}()
+	}
+	query.OnSubmitted = func(string) { show() }
+	view := widget.NewButtonWithIcon("Ver", theme.SearchIcon(), show)
+	view.Importance = widget.HighImportance
+
+	top := container.NewBorder(nil, nil, nil, view, query)
+	return container.NewPadded(container.NewBorder(top, nil, nil, nil, scroll))
+}
+
+func formatBlock(b blockResp) string {
+	var s strings.Builder
+	fmt.Fprintf(&s, "bloco %d — %d confirmação(ões)\n", b.Height, b.Confirmations)
+	fmt.Fprintf(&s, "hash  %s\n", b.Hash)
+	fmt.Fprintf(&s, "%s · dificuldade %.2f · %d bytes\n",
+		time.Unix(b.Time, 0).Format("02/01/2006 15:04:05"), b.Difficulty, b.Size)
+	for i, tx := range b.Txs {
+		s.WriteString("\n")
+		if tx.Coinbase {
+			fmt.Fprintf(&s, "tx %d · coinbase (recompensa do bloco) · %s…\n", i+1, tx.TxID[:16])
+		} else {
+			fmt.Fprintf(&s, "tx %d · %s…\n", i+1, tx.TxID[:16])
+			for _, in := range tx.Ins {
+				fmt.Fprintf(&s, "   gasta %s…:%d\n", in.TxID[:16], in.Index)
+			}
+		}
+		for _, out := range tx.Outs {
+			fmt.Fprintf(&s, "   → %s   %s PANDA\n", out.Address, out.ValuePanda)
+		}
+	}
+	return s.String()
 }
 
 // ── Atividade ───────────────────────────────────────────────────────────────

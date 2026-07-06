@@ -65,6 +65,14 @@ func (n *Node) dispatch(req rpcRequest) (any, error) {
 		return n.rpcGetInfo()
 	case "getbalance":
 		return n.rpcGetBalance(req.Params)
+	case "getblock":
+		return n.rpcGetBlock(req.Params)
+	case "getstats":
+		return n.rpcGetStats()
+	case "getrecentblocks":
+		return n.rpcGetRecentBlocks(req.Params)
+	case "getmempool":
+		return n.rpcGetMempool()
 	case "getnewutxos":
 		return n.rpcGetNewUTXOs(req.Params)
 	case "sendrawtx":
@@ -119,6 +127,260 @@ func (n *Node) rpcGetInfo() (any, error) {
 		info.Address = n.wallet.Address()
 	}
 	return info, nil
+}
+
+// ── getblock (o explorador: um bloco e suas transações por dentro) ─────────
+
+type blockParams struct {
+	Height *uint64 `json:"height,omitempty"` // ponteiro: 0 é altura válida
+	Hash   string  `json:"hash,omitempty"`
+	// ambos vazios = a ponta atual
+}
+
+type txInResult struct {
+	TxID  string `json:"txid"`
+	Index uint32 `json:"index"`
+}
+
+type txOutResult struct {
+	ValuePanda string `json:"value_panda"`
+	Address    string `json:"address"`
+}
+
+type txResult struct {
+	TxID     string        `json:"txid"`
+	Coinbase bool          `json:"coinbase"`
+	Ins      []txInResult  `json:"ins,omitempty"`
+	Outs     []txOutResult `json:"outs"`
+}
+
+type blockResult struct {
+	Height        uint64     `json:"height"`
+	Hash          string     `json:"hash"`
+	Prev          string     `json:"prev"`
+	Time          int64      `json:"time"`
+	Bits          string     `json:"bits"`
+	Difficulty    float64    `json:"difficulty"`
+	Nonce         uint64     `json:"nonce"`
+	Size          int        `json:"size"`
+	Confirmations uint64     `json:"confirmations"`
+	Txs           []txResult `json:"txs"`
+}
+
+func (n *Node) rpcGetBlock(raw json.RawMessage) (any, error) {
+	var p blockParams
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+	}
+	_, tipHeight, _ := n.chain.Tip()
+
+	var id [32]byte
+	switch {
+	case p.Hash != "":
+		b, err := hex.DecodeString(p.Hash)
+		if err != nil || len(b) != 32 {
+			return nil, fmt.Errorf("hash inválido: %q (esperado 64 caracteres hex)", p.Hash)
+		}
+		copy(id[:], b)
+	case p.Height != nil:
+		var err error
+		if id, err = n.chain.BlockIDByHeight(*p.Height); err != nil {
+			return nil, fmt.Errorf("sem bloco na altura %d (a chain está na %d)", *p.Height, tipHeight)
+		}
+	default:
+		tip, _, _ := n.chain.Tip()
+		id = tip.ID()
+	}
+
+	blk, err := n.chain.GetBlock(id)
+	if err != nil {
+		return nil, fmt.Errorf("bloco %x não encontrado", id[:8])
+	}
+
+	res := blockResult{
+		Height:     blk.Header.Height,
+		Hash:       hex.EncodeToString(id[:]),
+		Prev:       hex.EncodeToString(blk.Header.PrevHash[:]),
+		Time:       blk.Header.Timestamp,
+		Bits:       fmt.Sprintf("%08x", blk.Header.Bits),
+		Difficulty: pow.Difficulty(blk.Header.Bits, n.p),
+		Nonce:      blk.Header.Nonce,
+		Size:       len(blk.Bytes()),
+	}
+	if tipHeight >= blk.Header.Height {
+		res.Confirmations = tipHeight - blk.Header.Height + 1
+	}
+	for i := range blk.Txs {
+		tx := &blk.Txs[i]
+		txid := tx.TxID()
+		tr := txResult{TxID: hex.EncodeToString(txid[:]), Coinbase: tx.IsCoinbase()}
+		if !tr.Coinbase {
+			for _, in := range tx.Ins {
+				tr.Ins = append(tr.Ins, txInResult{
+					TxID: hex.EncodeToString(in.Prev.TxID[:]), Index: in.Prev.Index,
+				})
+			}
+		}
+		for _, out := range tx.Outs {
+			tr.Outs = append(tr.Outs, txOutResult{
+				ValuePanda: FormatPanda(out.Value),
+				Address:    core.AddressFromPKH(out.PubKeyHash),
+			})
+		}
+		res.Txs = append(res.Txs, tr)
+	}
+	return res, nil
+}
+
+// ── getstats / getrecentblocks / getmempool (o painel mempool.space-de-casa) ─
+
+type statsResult struct {
+	AvgBlockSecs    float64 `json:"avg_block_seconds"` // média dos últimos até 20 intervalos (0 = sem dados)
+	AvgWindow       int     `json:"avg_window"`        // quantos intervalos entraram na média
+	TargetSecs      int64   `json:"target_seconds"`
+	Difficulty      float64 `json:"difficulty"`
+	NextRetarget    uint64  `json:"next_retarget_height"`
+	BlocksToRetgt   uint64  `json:"blocks_to_retarget"`
+	RetargetFactor  float64 `json:"retarget_factor"` // estimativa: >1 dificuldade sobe (0 = sem dados)
+	NextHalving     uint64  `json:"next_halving_height"`
+	BlocksToHalve   uint64  `json:"blocks_to_halving"`
+	RewardPanda     string  `json:"reward_panda"`
+	NextRewardPanda string  `json:"next_reward_panda"`
+}
+
+func (n *Node) rpcGetStats() (any, error) {
+	tip, height, _ := n.chain.Tip()
+	s := statsResult{
+		TargetSecs:  int64(n.p.TargetSpacing / time.Second),
+		Difficulty:  pow.Difficulty(tip.Bits, n.p),
+		NextHalving: (height/n.p.HalvingInterval + 1) * n.p.HalvingInterval,
+		RewardPanda: FormatPanda(n.p.BlockSubsidy(height + 1)),
+	}
+	s.BlocksToHalve = s.NextHalving - height
+	s.NextRewardPanda = FormatPanda(n.p.BlockSubsidy(s.NextHalving))
+	s.NextRetarget = (height/n.p.RetargetInterval + 1) * n.p.RetargetInterval
+	s.BlocksToRetgt = s.NextRetarget - height
+
+	// Tempo médio: últimos até 20 intervalos (tip.ts - ancestral.ts)/n.
+	if k := min(height, 20); k > 0 {
+		old, err := n.chain.HeaderByHeight(height - k)
+		if err == nil && tip.Timestamp > old.Timestamp {
+			s.AvgBlockSecs = float64(tip.Timestamp-old.Timestamp) / float64(k)
+			s.AvgWindow = int(k)
+		}
+	}
+
+	// Previsão do retarget: o ritmo da JANELA ATUAL (do último ajuste até a
+	// ponta) projetado na conta real do consenso — >1 = dificuldade sobe.
+	windowStart := s.NextRetarget - n.p.RetargetInterval
+	if blocksIn := height - windowStart; blocksIn > 0 {
+		first, err := n.chain.HeaderByHeight(windowStart)
+		if err == nil && tip.Timestamp > first.Timestamp {
+			actualPerBlock := float64(tip.Timestamp-first.Timestamp) / float64(blocksIn)
+			factor := float64(s.TargetSecs) / actualPerBlock
+			clamp := float64(n.p.MaxClamp)
+			if factor > clamp {
+				factor = clamp
+			}
+			if factor < 1/clamp {
+				factor = 1 / clamp
+			}
+			s.RetargetFactor = factor
+		}
+	}
+	return s, nil
+}
+
+type recentParams struct {
+	Count int `json:"count,omitempty"` // default 15, máx 50
+}
+
+type recentBlock struct {
+	Height  uint64 `json:"height"`
+	Hash    string `json:"hash"`
+	Time    int64  `json:"time"`
+	Txs     int    `json:"txs"`
+	Size    int    `json:"size"`
+	Miner   string `json:"miner"`   // endereço da coinbase
+	Elapsed int64  `json:"elapsed"` // segundos desde o bloco anterior (0 no gênesis)
+}
+
+func (n *Node) rpcGetRecentBlocks(raw json.RawMessage) (any, error) {
+	var p recentParams
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+	}
+	count := uint64(15)
+	if p.Count > 0 && p.Count <= 50 {
+		count = uint64(p.Count)
+	}
+	_, height, _ := n.chain.Tip()
+	start := uint64(0)
+	if height+1 > count {
+		start = height + 1 - count
+	}
+	var prevTS int64
+	if start > 0 {
+		if h, err := n.chain.HeaderByHeight(start - 1); err == nil {
+			prevTS = h.Timestamp
+		}
+	}
+	out := make([]recentBlock, 0, count)
+	for h := start; h <= height; h++ {
+		id, err := n.chain.BlockIDByHeight(h)
+		if err != nil {
+			return nil, err
+		}
+		blk, err := n.chain.GetBlock(id)
+		if err != nil {
+			return nil, err
+		}
+		rb := recentBlock{
+			Height: h,
+			Hash:   hex.EncodeToString(id[:]),
+			Time:   blk.Header.Timestamp,
+			Txs:    len(blk.Txs),
+			Size:   len(blk.Bytes()),
+		}
+		if len(blk.Txs) > 0 && len(blk.Txs[0].Outs) > 0 {
+			rb.Miner = core.AddressFromPKH(blk.Txs[0].Outs[0].PubKeyHash)
+		}
+		if prevTS > 0 && blk.Header.Timestamp > prevTS {
+			rb.Elapsed = blk.Header.Timestamp - prevTS
+		}
+		prevTS = blk.Header.Timestamp
+		out = append(out, rb)
+	}
+	// mais novo primeiro, como todo explorador
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out, nil
+}
+
+type mempoolTx struct {
+	TxID     string  `json:"txid"`
+	Size     int     `json:"size"`
+	FeePanda string  `json:"fee_panda"`
+	FeeRate  float64 `json:"fee_rate"`
+}
+
+func (n *Node) rpcGetMempool() (any, error) {
+	entries := n.mp.Entries()
+	out := make([]mempoolTx, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, mempoolTx{
+			TxID:     hex.EncodeToString(e.TxID[:]),
+			Size:     e.Size,
+			FeePanda: FormatPanda(e.Fee),
+			FeeRate:  e.FeeRate,
+		})
+	}
+	return out, nil
 }
 
 // ── getbalance / getnewutxos ────────────────────────────────────────────────
