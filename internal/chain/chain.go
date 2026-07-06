@@ -406,6 +406,31 @@ func (c *Chain) UTXOsByPKH(pkh [20]byte) ([]UTXO, error) {
 	return out, err
 }
 
+// SpentByBlock devolve os outputs que um bloco ATIVO gastou, lidos do undo
+// set: valor e dono de cada input, sem precisar de um índice de transações
+// separado. É a fonte do histórico de atividade da wallet (o undo só existe
+// enquanto o bloco está na cadeia ativa — num reorg ele é consumido e
+// apagado, então nunca descreve um bloco morto). Gênesis/bloco só-coinbase
+// devolvem lista vazia.
+func (c *Chain) SpentByBlock(id [32]byte) ([]UTXO, error) {
+	var out []UTXO
+	err := c.db.View(func(btx *bolt.Tx) error {
+		raw := btx.Bucket(bucketUndo).Get(id[:])
+		if raw == nil {
+			return nil
+		}
+		spent, err := decodeUndo(raw)
+		if err != nil {
+			return err
+		}
+		for _, s := range spent {
+			out = append(out, UTXO{Prev: s.Prev, Value: s.Entry.Value, PKH: s.Entry.PKH, Height: s.Entry.Height, Coinbase: s.Entry.Coinbase})
+		}
+		return nil
+	})
+	return out, err
+}
+
 // LookupUTXO busca um único outpoint no UTXO set da cadeia ativa — a
 // consulta que o mempool faz por input ao admitir uma transação.
 func (c *Chain) LookupUTXO(op core.OutPoint) (UTXO, bool, error) {

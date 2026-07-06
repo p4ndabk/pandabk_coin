@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -127,10 +128,67 @@ func (u *ui) walletTab() fyne.CanvasObject {
 		container.NewBorder(nil, nil, nil, copyBtn, u.walletAddr),
 	))))
 
+	u.walletActs = widget.NewLabel("…")
+	u.walletActs.TextStyle = fyne.TextStyle{Monospace: true}
+	u.walletActs.Wrapping = fyne.TextWrapWord
+
+	// controles do extrato: filtro (tudo/transações/mineração) + paginação
+	filterNames := map[string]string{"Tudo": "all", "Transações": "tx", "Mineração": "mined"}
+	filter := widget.NewSelect([]string{"Tudo", "Transações", "Mineração"}, func(sel string) {
+		u.setActsFilter(filterNames[sel])
+	})
+	filter.Selected = "Tudo" // estado inicial já é "all" — sem disparar callback
+
+	u.actsPrev = widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() { u.turnActsPage(-1) })
+	u.actsNext = widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() { u.turnActsPage(1) })
+	u.actsPrev.Disable()
+	u.actsNext.Disable()
+	u.actsPageLbl = widget.NewLabel("página 1")
+	pager := container.NewHBox(filter, layout.NewSpacer(), u.actsPrev, u.actsPageLbl, u.actsNext)
+
 	return container.NewVScroll(container.NewPadded(container.NewVBox(
 		walletCard,
 		backup,
+		widget.NewSeparator(),
+		caption("ATIVIDADE — ENTRADAS E SAÍDAS CONFIRMADAS", u.muted()),
+		pager,
+		u.walletActs,
 	)))
+}
+
+// formatActivity é o extrato bancário da wallet: sinal, valor, bloco e a
+// contraparte de cada movimento confirmado (o que ainda espera minerador
+// aparece em "NA FILA", na aba Início).
+func formatActivity(entries []activityResp) string {
+	if len(entries) == 0 {
+		return "nada ainda — minere ou receba PANDA e o extrato aparece aqui"
+	}
+	var s strings.Builder
+	for _, e := range entries {
+		sign, who := "+", ""
+		switch {
+		case e.Coinbase:
+			who = "recompensa de mineração ⛏️"
+		case e.Direction == "in":
+			who = "de " + shortAddr(e.Counterparty)
+		default:
+			sign = "−"
+			who = "para " + shortAddr(e.Counterparty)
+			if e.FeePanda != "" {
+				who += "  (taxa " + e.FeePanda + ")"
+			}
+		}
+		fmt.Fprintf(&s, "%s%-12s bloco %-6d %s  %s\n",
+			sign, e.AmountPanda, e.Height, time.Unix(e.Time, 0).Format("02/01 15:04"), who)
+	}
+	return strings.TrimRight(s.String(), "\n")
+}
+
+func shortAddr(a string) string {
+	if len(a) > 12 {
+		return a[:12] + "…"
+	}
+	return a
 }
 
 // ── Enviar ──────────────────────────────────────────────────────────────────
@@ -236,8 +294,8 @@ func formatMempoolList(txs []mempoolResp) string {
 			fmt.Fprintf(&s, "… e mais %d", len(txs)-8)
 			break
 		}
-		fmt.Fprintf(&s, "%s…  %d bytes  taxa %s PANDA (%.1f/byte)\n",
-			tx.TxID[:16], tx.Size, tx.FeePanda, tx.FeeRate)
+		fmt.Fprintf(&s, "%s…  %s PANDA  %d bytes  taxa %s (%.1f/byte)\n",
+			tx.TxID[:16], tx.ValuePanda, tx.Size, tx.FeePanda, tx.FeeRate)
 	}
 	return strings.TrimRight(s.String(), "\n")
 }

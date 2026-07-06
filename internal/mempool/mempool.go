@@ -28,6 +28,7 @@ var (
 type entry struct {
 	tx      *core.Tx
 	size    int
+	value   uint64 // Σ outputs — o que a tx movimenta (sem a taxa)
 	fee     uint64
 	feeRate float64
 	seq     uint64 // ordem de chegada: desempate FIFO na ordenação
@@ -134,6 +135,7 @@ func (m *Mempool) Add(tx *core.Tx) error {
 	e := &entry{
 		tx:      tx,
 		size:    size,
+		value:   sumOut,
 		fee:     sumIn - sumOut,
 		feeRate: float64(sumIn-sumOut) / float64(size),
 		seq:     m.nextSeq,
@@ -176,6 +178,7 @@ func (m *Mempool) Get(txid [32]byte) (*core.Tx, bool) {
 type Entry struct {
 	TxID    [32]byte
 	Size    int
+	Value   uint64 // Σ outputs (o que a tx movimenta, sem a taxa)
 	Fee     uint64
 	FeeRate float64
 	Seq     uint64
@@ -188,7 +191,7 @@ func (m *Mempool) Entries() []Entry {
 	defer m.mu.Unlock()
 	out := make([]Entry, 0, len(m.pool))
 	for txid, e := range m.pool {
-		out = append(out, Entry{TxID: txid, Size: e.size, Fee: e.fee, FeeRate: e.feeRate, Seq: e.seq})
+		out = append(out, Entry{TxID: txid, Size: e.size, Value: e.value, Fee: e.fee, FeeRate: e.feeRate, Seq: e.seq})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].FeeRate != out[j].FeeRate {

@@ -207,6 +207,67 @@ func TestDemoTwoNodes(t *testing.T) {
 		t.Fatalf("getinfo de A estranho: %+v", info)
 	}
 
+	// extrato: B vê UMA entrada de 1.5 vinda do endereço de A; A vê a saída
+	// de 1.5 para B (com taxa à parte) no meio das recompensas de mineração
+	var actB []activityEntry
+	if err := rpcCall(t, b.RPCAddr(), "getactivity", nil, &actB); err != nil {
+		t.Fatal(err)
+	}
+	if len(actB) != 1 || actB[0].Direction != "in" || actB[0].AmountPanda != "1.5" ||
+		actB[0].Coinbase || actB[0].Counterparty != info.Address || actB[0].Height == 0 {
+		t.Fatalf("extrato de B: %+v", actB)
+	}
+	var actA []activityEntry
+	if err := rpcCall(t, a.RPCAddr(), "getactivity", activityParams{Count: 100}, &actA); err != nil {
+		t.Fatal(err)
+	}
+	var out *activityEntry
+	coinbases := 0
+	for i := range actA {
+		switch {
+		case actA[i].Direction == "out":
+			out = &actA[i]
+		case actA[i].Coinbase:
+			coinbases++
+		}
+	}
+	if out == nil || out.AmountPanda != "1.5" || out.Counterparty != bw.Address() || out.FeePanda == "" {
+		t.Fatalf("extrato de A sem a saída esperada: %+v", actA)
+	}
+	if coinbases == 0 {
+		t.Fatalf("extrato de A deveria listar recompensas de mineração: %+v", actA)
+	}
+
+	// filtro: "tx" isola a única transação comum da rede; "mined" só coinbase
+	var txOnly []activityEntry
+	if err := rpcCall(t, a.RPCAddr(), "getactivity", activityParams{Filter: "tx", Count: 100}, &txOnly); err != nil {
+		t.Fatal(err)
+	}
+	if len(txOnly) != 1 || txOnly[0].TxID != out.TxID {
+		t.Fatalf("filter=tx deveria isolar o envio: %+v", txOnly)
+	}
+	var minedOnly []activityEntry
+	if err := rpcCall(t, a.RPCAddr(), "getactivity", activityParams{Filter: "mined", Count: 100}, &minedOnly); err != nil {
+		t.Fatal(err)
+	}
+	if len(minedOnly) == 0 {
+		t.Fatal("filter=mined vazio num node que minera")
+	}
+	for _, e := range minedOnly {
+		if !e.Coinbase || e.Direction != "in" {
+			t.Fatalf("filter=mined deixou passar algo que não é coinbase: %+v", e)
+		}
+	}
+
+	// paginação: B tem exatamente 1 lançamento — offset=1 é o fim do extrato
+	var pageTwo []activityEntry
+	if err := rpcCall(t, b.RPCAddr(), "getactivity", activityParams{Offset: 1}, &pageTwo); err != nil {
+		t.Fatal(err)
+	}
+	if len(pageTwo) != 0 {
+		t.Fatalf("offset=1 no extrato de B deveria ser vazio: %+v", pageTwo)
+	}
+
 	// shutdown limpo: fechar B e reabrir a chain sem erro (bbolt íntegro)
 	dataDir := bcfg.ChainPath()
 	if err := b.Stop(); err != nil {
@@ -299,5 +360,18 @@ func TestGetInfoAndBalanceHandlers(t *testing.T) {
 	var pending []mempoolTx
 	if err := rpcCall(t, n.RPCAddr(), "getmempool", nil, &pending); err != nil || len(pending) != 0 {
 		t.Fatalf("getmempool: %v %v", pending, err)
+	}
+
+	// getactivity: wallet recém-criada não aparece em bloco nenhum → vazio
+	var acts []activityEntry
+	if err := rpcCall(t, n.RPCAddr(), "getactivity", nil, &acts); err != nil || len(acts) != 0 {
+		t.Fatalf("getactivity: %v %v", acts, err)
+	}
+	if err := rpcCall(t, n.RPCAddr(), "getactivity", activityParams{Address: "Pinvalido"}, nil); err == nil {
+		t.Fatal("getactivity com endereço inválido deveria dar erro")
+	}
+	if err := rpcCall(t, n.RPCAddr(), "getactivity", activityParams{Filter: "tudo"}, nil); err == nil ||
+		!strings.Contains(err.Error(), "filter inválido") {
+		t.Fatalf("filter desconhecido deveria dar erro claro: %v", err)
 	}
 }

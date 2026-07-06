@@ -43,9 +43,25 @@ type ui struct {
 	walletTotal   *canvas.Text
 	walletSpend   *canvas.Text
 	walletUTXOs   *widget.Label
+	walletActs    *widget.Label
+	actsPageLbl   *widget.Label
+	actsPrev      *widget.Button
+	actsNext      *widget.Button
 	logView       *widget.Label
 	logScroll     *container.Scroll
+
+	// extrato: filtro e página vêm de callbacks da UI, a recarga roda em
+	// goroutine — tudo que os dois lados tocam fica atrás do actsMu
+	actsMu     sync.Mutex
+	actsFilter string // "all" | "tx" | "mined"
+	actsPage   int
+
+	// só a goroutine do refreshLoop toca nestes dois
+	actsHeight  uint64
+	actsFetched bool
 }
+
+const actsPageSize = 15
 
 // infoResp espelha o getinfo do node (internal/node/rpc.go).
 type infoResp struct {
@@ -89,10 +105,21 @@ type recentResp struct {
 }
 
 type mempoolResp struct {
-	TxID     string  `json:"txid"`
-	Size     int     `json:"size"`
-	FeePanda string  `json:"fee_panda"`
-	FeeRate  float64 `json:"fee_rate"`
+	TxID       string  `json:"txid"`
+	Size       int     `json:"size"`
+	ValuePanda string  `json:"value_panda"`
+	FeePanda   string  `json:"fee_panda"`
+	FeeRate    float64 `json:"fee_rate"`
+}
+
+type activityResp struct {
+	Height       uint64 `json:"height"`
+	Time         int64  `json:"time"`
+	Direction    string `json:"direction"`
+	AmountPanda  string `json:"amount_panda"`
+	FeePanda     string `json:"fee_panda"`
+	Coinbase     bool   `json:"coinbase"`
+	Counterparty string `json:"counterparty"`
 }
 
 // rpcAddr/setRPC protegem o endereço RPC: o refreshLoop lê de uma goroutine
@@ -209,6 +236,13 @@ func (u *ui) refresh() {
 	var pending []mempoolResp
 	mpErr := rpcclient.CallTimeout(addr, "getmempool", nil, &pending, 3*time.Second)
 
+	// extrato da wallet: varre a chain no node, então só quando há bloco novo
+	if !u.actsFetched || info.Height != u.actsHeight {
+		if u.reloadActs() == nil {
+			u.actsFetched, u.actsHeight = true, info.Height
+		}
+	}
+
 	fyne.Do(func() {
 		u.setCard("height", formatUint(info.Height))
 		u.setCard("difficulty", formatFloat(info.Difficulty))
@@ -266,6 +300,77 @@ func (u *ui) applyStats(st statsResp) {
 	}
 	u.setCard("halving", fmt.Sprintf("em %d", st.BlocksToHalve))
 	u.setCardSub("halving", fmt.Sprintf("RECOMPENSA %s → %s PANDA", st.RewardPanda, st.NextReward))
+}
+
+// reloadActs busca a página atual do extrato (filtro + offset) e atualiza a
+// aba Carteira. Pede um lançamento a mais que a página para saber se existe
+// próxima. Uma resposta que chega atrasada, depois de o usuário já ter
+// mudado filtro/página, é descartada.
+func (u *ui) reloadActs() error {
+	u.actsMu.Lock()
+	filter, page := u.actsFilter, u.actsPage
+	u.actsMu.Unlock()
+	params := map[string]any{"count": actsPageSize + 1, "offset": page * actsPageSize}
+	if filter != "" && filter != "all" {
+		params["filter"] = filter
+	}
+	var acts []activityResp
+	if err := rpcclient.CallTimeout(u.rpcAddr(), "getactivity", params, &acts, 5*time.Second); err != nil {
+		return err
+	}
+	more := len(acts) > actsPageSize
+	if more {
+		acts = acts[:actsPageSize]
+	}
+	fyne.Do(func() {
+		u.actsMu.Lock()
+		stale := filter != u.actsFilter || page != u.actsPage
+		u.actsMu.Unlock()
+		if stale {
+			return
+		}
+		text := formatActivity(acts)
+		if len(acts) == 0 && page > 0 {
+			text = "fim do extrato — volte uma página"
+		}
+		u.walletActs.SetText(text)
+		u.actsPageLbl.SetText(fmt.Sprintf("página %d", page+1))
+		if page > 0 {
+			u.actsPrev.Enable()
+		} else {
+			u.actsPrev.Disable()
+		}
+		if more {
+			u.actsNext.Enable()
+		} else {
+			u.actsNext.Disable()
+		}
+	})
+	return nil
+}
+
+// setActsFilter/turnActsPage reagem aos controles do extrato: mudou de
+// verdade → volta o estado e recarrega em goroutine (nunca RPC na thread da
+// UI).
+func (u *ui) setActsFilter(filter string) {
+	u.actsMu.Lock()
+	changed := filter != u.actsFilter
+	u.actsFilter, u.actsPage = filter, 0
+	u.actsMu.Unlock()
+	if changed {
+		go func() { _ = u.reloadActs() }()
+	}
+}
+
+func (u *ui) turnActsPage(delta int) {
+	u.actsMu.Lock()
+	next := max(u.actsPage+delta, 0)
+	changed := next != u.actsPage
+	u.actsPage = next
+	u.actsMu.Unlock()
+	if changed {
+		go func() { _ = u.reloadActs() }()
+	}
 }
 
 func (u *ui) setCardSub(key, text string) {

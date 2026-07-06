@@ -73,6 +73,8 @@ func (n *Node) dispatch(req rpcRequest) (any, error) {
 		return n.rpcGetRecentBlocks(req.Params)
 	case "getmempool":
 		return n.rpcGetMempool()
+	case "getactivity":
+		return n.rpcGetActivity(req.Params)
 	case "getnewutxos":
 		return n.rpcGetNewUTXOs(req.Params)
 	case "sendrawtx":
@@ -363,10 +365,11 @@ func (n *Node) rpcGetRecentBlocks(raw json.RawMessage) (any, error) {
 }
 
 type mempoolTx struct {
-	TxID     string  `json:"txid"`
-	Size     int     `json:"size"`
-	FeePanda string  `json:"fee_panda"`
-	FeeRate  float64 `json:"fee_rate"`
+	TxID       string  `json:"txid"`
+	Size       int     `json:"size"`
+	ValuePanda string  `json:"value_panda"` // Σ outputs — o que a tx movimenta
+	FeePanda   string  `json:"fee_panda"`
+	FeeRate    float64 `json:"fee_rate"`
 }
 
 func (n *Node) rpcGetMempool() (any, error) {
@@ -374,11 +377,157 @@ func (n *Node) rpcGetMempool() (any, error) {
 	out := make([]mempoolTx, 0, len(entries))
 	for _, e := range entries {
 		out = append(out, mempoolTx{
-			TxID:     hex.EncodeToString(e.TxID[:]),
-			Size:     e.Size,
-			FeePanda: FormatPanda(e.Fee),
-			FeeRate:  e.FeeRate,
+			TxID:       hex.EncodeToString(e.TxID[:]),
+			Size:       e.Size,
+			ValuePanda: FormatPanda(e.Value),
+			FeePanda:   FormatPanda(e.Fee),
+			FeeRate:    e.FeeRate,
 		})
+	}
+	return out, nil
+}
+
+// ── getactivity (o extrato da wallet: entradas e saídas confirmadas) ───────
+
+type activityParams struct {
+	Address string `json:"address,omitempty"` // vazio = a wallet do node
+	Count   int    `json:"count,omitempty"`   // default 25, máx 100
+	Offset  int    `json:"offset,omitempty"`  // pula os N primeiros lançamentos (paginação)
+	Filter  string `json:"filter,omitempty"`  // "all" (default) | "tx" | "mined"
+}
+
+type activityEntry struct {
+	Height       uint64 `json:"height"`
+	Time         int64  `json:"time"`
+	TxID         string `json:"txid"`
+	Direction    string `json:"direction"` // "in" (entrada) | "out" (saída)
+	AmountPanda  string `json:"amount_panda"`
+	FeePanda     string `json:"fee_panda,omitempty"` // só em saídas
+	Coinbase     bool   `json:"coinbase"`
+	Counterparty string `json:"counterparty,omitempty"` // de quem veio / para quem foi
+}
+
+// rpcGetActivity varre a cadeia ativa da ponta para trás e monta o extrato
+// do endereço: outputs recebidos são entradas; inputs gastos (resolvidos
+// pelo undo do bloco, que guarda valor e dono de cada moeda consumida) são
+// saídas. filter separa recompensas de mineração ("mined") de transações
+// comuns ("tx"); offset+count paginam do mais novo para o mais velho. Sem
+// índice por endereço — é uma varredura, na régua do node doméstico; o
+// count limita quantos lançamentos voltam, não o custo de achá-los.
+func (n *Node) rpcGetActivity(raw json.RawMessage) (any, error) {
+	var p activityParams
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+	}
+	pkh, _, err := n.resolvePKH(p.Address)
+	if err != nil {
+		return nil, err
+	}
+	count := 25
+	if p.Count > 0 && p.Count <= 100 {
+		count = p.Count
+	}
+	offset := max(p.Offset, 0)
+	var wantMined, wantTx bool
+	switch p.Filter {
+	case "", "all":
+		wantMined, wantTx = true, true
+	case "mined":
+		wantMined = true
+	case "tx":
+		wantTx = true
+	default:
+		return nil, fmt.Errorf(`filter inválido: %q (use "all", "tx" ou "mined")`, p.Filter)
+	}
+	_, height, _ := n.chain.Tip()
+	skipped := 0
+	out := make([]activityEntry, 0, count)
+	for h := height; ; h-- {
+		id, err := n.chain.BlockIDByHeight(h)
+		if err != nil {
+			return nil, err
+		}
+		blk, err := n.chain.GetBlock(id)
+		if err != nil {
+			return nil, err
+		}
+		spentList, err := n.chain.SpentByBlock(id)
+		if err != nil {
+			return nil, err
+		}
+		spent := make(map[core.OutPoint]chain.UTXO, len(spentList))
+		for _, s := range spentList {
+			spent[s.Prev] = s
+		}
+		// dentro do bloco também do mais novo para o mais velho
+		for i := len(blk.Txs) - 1; i >= 0; i-- {
+			tx := &blk.Txs[i]
+			if cb := tx.IsCoinbase(); (cb && !wantMined) || (!cb && !wantTx) {
+				continue
+			}
+			var sent, totalIn uint64
+			for _, in := range tx.Ins {
+				e, ok := spent[in.Prev]
+				if !ok {
+					continue // coinbase (outpoint fictício)
+				}
+				totalIn += e.Value
+				if e.PKH == pkh {
+					sent += e.Value
+				}
+			}
+			var recv, totalOut uint64
+			for _, o := range tx.Outs {
+				totalOut += o.Value
+				if o.PubKeyHash == pkh {
+					recv += o.Value
+				}
+			}
+			if sent == 0 && recv == 0 {
+				continue
+			}
+			if skipped < offset {
+				skipped++
+				continue
+			}
+			txid := tx.TxID()
+			e := activityEntry{
+				Height: h, Time: blk.Header.Timestamp,
+				TxID: hex.EncodeToString(txid[:]), Coinbase: tx.IsCoinbase(),
+			}
+			if sent > 0 {
+				// saída: o valor é o que foi para os outros (o troco volta);
+				// a taxa aparece separada, não escondida no valor.
+				e.Direction = "out"
+				e.AmountPanda = FormatPanda(totalOut - recv)
+				if totalIn > totalOut {
+					e.FeePanda = FormatPanda(totalIn - totalOut)
+				}
+				for _, o := range tx.Outs {
+					if o.PubKeyHash != pkh {
+						e.Counterparty = core.AddressFromPKH(o.PubKeyHash)
+						break
+					}
+				}
+			} else {
+				e.Direction = "in"
+				e.AmountPanda = FormatPanda(recv)
+				if !e.Coinbase && len(tx.Ins) > 0 {
+					if s, ok := spent[tx.Ins[0].Prev]; ok {
+						e.Counterparty = core.AddressFromPKH(s.PKH)
+					}
+				}
+			}
+			out = append(out, e)
+		}
+		if len(out) >= count || h == 0 {
+			break
+		}
+	}
+	if len(out) > count {
+		out = out[:count]
 	}
 	return out, nil
 }

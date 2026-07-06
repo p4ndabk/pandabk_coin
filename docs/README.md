@@ -530,7 +530,7 @@ Para quem quiser ler o código (cada pacote tem um `SPEC.md` com uma seção
 | `internal/params` | perfis de consenso (devnet/test), subsídio, halving | escassez programada |
 | `internal/core` | bloco, transação UTXO, merkle, endereços, serialização canônica | as peças do jogo |
 | `internal/pow` | Argon2id, target/nBits, retarget | por que memory-hard democratiza |
-| `internal/chain` | validação completa, UTXO set, fork choice, reorg (bbolt) | o consenso em si |
+| `internal/chain` | validação completa, UTXO set, fork choice, reorg (bbolt) — o banco explicado gaveta a gaveta em [BLOCKS.md](./BLOCKS.md) | o consenso em si |
 | `internal/mempool` | fila de transações por taxa, anti double-spend | o mercado de espaço no bloco |
 | `internal/wallet` | chaves, wallet.json, construção/assinatura de tx | posse = assinatura |
 | `internal/p2p` | handshake, gossip, sync inicial, address book | a descentralização literal |
@@ -586,7 +586,11 @@ Seis abas: **Início** (o painel completo, estilo mempool.space caseiro:
 saldo, altura, dificuldade, peers, hashrate, tempo médio por bloco vs
 alvo, contagem para o retarget com previsão de subida/queda da
 dificuldade, contagem para o halving, os últimos blocos com quem minerou
-cada um, e a fila de transações esperando bloco), **Carteira** (endereço + copiar, aviso de backup), **Enviar**
+cada um, e a fila de transações esperando bloco), **Carteira** (endereço +
+copiar, aviso de backup e o **extrato**: cada entrada e saída confirmada
+com valor, bloco, data e a contraparte — recompensas de mineração
+marcadas, taxa mostrada à parte nas saídas, com filtro
+tudo/transações/mineração e paginação), **Enviar**
 (com confirmação), **Blocos** (explorador: as transações dentro de cada
 bloco), **Atividade** (os logs do node ao vivo: peers conectando, blocos,
 retarget, halving) e **Ajustes** (o panda.conf na interface).

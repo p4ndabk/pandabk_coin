@@ -125,6 +125,14 @@ func TestAddValidAndTopByFeeRate(t *testing.T) {
 	if len(top) != 2 || top[0].TxID() != rich.TxID() {
 		t.Fatalf("maior taxa deveria vir primeiro: %d txs", len(top))
 	}
+	// Entries expõe valor movimentado (Σ outs) e taxa, na mesma ordem
+	entries := h.m.Entries()
+	if len(entries) != 2 || entries[0].TxID != rich.TxID() {
+		t.Fatalf("Entries fora de ordem: %+v", entries)
+	}
+	if entries[0].Value != subsidy-500_000 || entries[0].Fee != 500_000 {
+		t.Fatalf("Entry da rich com valor/taxa errados: %+v", entries[0])
+	}
 	// orçamento apertado: só cabe a primeira
 	small := h.m.TopByFeeRate(len(rich.Bytes()))
 	if len(small) != 1 || small[0].TxID() != rich.TxID() {
