@@ -25,6 +25,7 @@
 10. [Referência de todos os comandos](#10-referência-de-todos-os-comandos)
 11. [Os módulos por dentro](#11-os-módulos-por-dentro)
 12. [Solução de problemas](#12-solução-de-problemas)
+13. [App de desktop (sem terminal)](#13-app-de-desktop)
 
 ---
 
@@ -53,23 +54,46 @@ $env:CGO_ENABLED = "0"
 go build -o bin\panda-node.exe .\cmd\node
 ```
 
-### Build para outras máquinas (cross-compile)
+### Build para outras máquinas (scripts oficiais)
 
 Você builda no seu computador e manda o binário pronto para os amigos —
-eles não precisam de Go, nem de instalar nada:
+eles não precisam de Go, nem de instalar nada. Cada sistema tem seu script:
 
 ```sh
-# Linux (PCs e servidores)
-CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -o dist/panda-node-linux-amd64   ./cmd/node
-# Linux ARM (Raspberry Pi 3/4/5)
-CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -o dist/panda-node-linux-arm64   ./cmd/node
-# macOS Intel
-CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -o dist/panda-node-darwin-amd64  ./cmd/node
-# macOS Apple Silicon (M1/M2/M3/M4)
-CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -o dist/panda-node-darwin-arm64  ./cmd/node
-# Windows
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/panda-node-windows-amd64.exe ./cmd/node
+scripts/build-linux.sh      # Linux: PCs/servidores (amd64) + Raspberry Pi (arm64)
+scripts/build-macos.sh      # macOS: Apple Silicon (arm64) + Intel (amd64)
+scripts/build-windows.sh    # Windows: .exe para amd64 + arm64
+scripts/build-all.sh        # os três de uma vez
 ```
+
+Os binários caem em `dist/`, cada um com o **sha256 impresso** — mande o
+hash junto para o amigo conferir que o arquivo chegou íntegro.
+
+Os scripts leem o **`build.conf`** (copie de `build.conf.example`), que é a
+configuração **do desenvolvedor que compila** — responsabilidade separada
+do `panda.conf`, que configura o **node em execução** (seção 5):
+
+```ini
+# build.conf — só de quem compila
+name=panda-node      # nome-base dos binários
+outdir=dist          # pasta de saída
+version=0.1.0-dev    # aparece em `panda-node version` e no banner do run
+
+# Regras de consenso DESTE build (opcionais — a economia da sua rede):
+#spacing=1m          # meta de tempo por bloco
+#halving=1000        # recompensa cai pela metade a cada N blocos
+#subsidy=50          # recompensa inicial em PANDA inteiros
+#retarget=100        # reajusta a dificuldade a cada N blocos (menor = corrige mais rápido)
+#profile=devnet      # perfil default do binário
+```
+
+> ⚠️ **Regras definidas no build formam uma rede própria.** Mudar
+> `spacing`/`halving`/`subsidy` muda o bloco gênesis — e o gênesis é o ID da
+> rede no handshake: o binário só conversa com outros compilados com as
+> **mesmas** regras (os demais são recusados com `gênesis diferente — outra
+> rede`). É proposital: builds diferentes não se contaminam. Distribua o
+> mesmo build para toda a turma; o banner do `run` e o `panda-node info`
+> mostram as regras embutidas.
 
 > 💡 No Linux/macOS, depois de copiar o binário: `chmod +x panda-node`.
 > No macOS, se o Gatekeeper reclamar de binário baixado:
@@ -147,14 +171,22 @@ pela porta RPC local — nunca abrem o banco diretamente):
 ./panda-node info
 ```
 ```
-perfil     devnet
-altura     1204
-tip        30b3c9159b5c7461...
-peers      3
-mempool    2 tx(s)
-minerando  sim (24.6 H/s)
-endereço   PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1
+perfil       devnet
+altura       1204
+tip          30b3c9159b5c7461...
+dificuldade  5.10 (bits 1e032500)
+alvo         1 bloco a cada 60s
+recompensa   25 PANDA (próximo halving no bloco 2000)
+peers        3
+mempool      2 tx(s)
+minerando    sim (24.6 H/s)
+endereço     PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1
 ```
+
+> 💡 **Dificuldade 1.00 e blocos saindo rápido demais?** Toda rede nova
+> começa na dificuldade mínima; o retarget corrige a cada 100 blocos (até
+> 4× por vez) até o ritmo bater no alvo — acompanhe pelas linhas `🎯` no
+> log do node.
 
 ```sh
 ./panda-node balance
@@ -183,6 +215,10 @@ destinatário vê o valor no `balance` dele — normalmente em 1–2 blocos.
 ---
 
 ## 5. Configuração
+
+> **Dois arquivos, duas responsabilidades:** o `build.conf` (seção 1) é de
+> quem **compila**; o `panda.conf` desta seção é de quem **roda o node**.
+> Quem só recebe o binário pronto nunca toca no `build.conf`.
 
 Três formas, nesta ordem de precedência (a de cima vence):
 
@@ -414,12 +450,13 @@ torsocks ./panda-node run -peers pandaxyzabc...def.onion:9551 -listen ""
 | Comando | O que faz | Flags principais |
 |---|---|---|
 | `run` | sobe o full node (chain + mempool + p2p + miner) | ver [seção 5](#5-configuração) |
-| `info` | altura, tip, peers, mempool, hashrate | `-rpc` |
+| `info` | altura, dificuldade, recompensa/halving, peers, mempool, hashrate | `-rpc` |
 | `balance` | saldo de um endereço | `-rpc`, `-address` (default: wallet do node) |
 | `send` | envia PANDA | `-rpc`, `-to P...`, `-amount 1.5`, `-fee-rate` |
 | `wallet new` | cria wallet (0600; nunca sobrescreve) | `-file` ou `-datadir` |
 | `wallet address` | reexibe o endereço | `-file` ou `-datadir` |
 | `genesis` | (dev) minera o bloco 0 de um perfil | `-profile` |
+| `version` | versão do binário (do `build.conf` de quem compilou) | — |
 
 Todos aceitam `-config caminho.conf` (default: `panda.conf` do diretório
 atual, se existir).
@@ -472,6 +509,64 @@ A direção de dependência é estrita:
 | `wallet: arquivo já existe` | proteção contra sobrescrever chave — para outra wallet, use outro `-file` |
 | `permissão do arquivo insegura` | `chmod 600 wallet.json` |
 | dois nodes não conectam na LAN | firewall bloqueando a porta 9551 da máquina com `-listen`; teste `nc -vz IP 9551` |
+
+---
+
+## 13. App de desktop
+
+Para quem prefere uma **janela** a um terminal: o `panda-desktop` faz o
+mesmo que o console — e a mais: se não houver node rodando, **ele mesmo
+vira o node**. Interface nativa escrita em Go (Fyne) — sem Electron, sem
+navegador embutido — com visual clean claro/escuro automático.
+
+### Como funciona (híbrido)
+
+Ao abrir, o app procura um node na RPC local (`127.0.0.1:8555` ou o que
+estiver no `panda.conf`):
+
+- **Achou** → vira um *painel* do node que já roda no terminal/servidor.
+- **Não achou** → sobe o node **dentro do próprio app** (mesma config:
+  flags > `panda.conf` > `NODE_*`), minerando por padrão. Fechar a janela
+  desliga tudo com segurança.
+
+Na **primeira vez** (sem `panda.conf` salvo), o app abre uma tela de
+boas-vindas pedindo o essencial — o peer de quem te convidou, se quer
+minerar, portas — salva tudo e só então liga o node. A configuração fica em
+`~/.panda/panda.conf` (o app acha sozinho, pode abrir por clique duplo) e é
+editável a qualquer momento pela aba **Ajustes**, com a opção de reiniciar
+o node na hora para aplicar.
+
+Cinco abas: **Início** (saldo, altura, dificuldade, peers, hashrate em
+cartões), **Carteira** (endereço + copiar, aviso de backup), **Enviar**
+(com confirmação), **Atividade** (os logs do node ao vivo: peers
+conectando, blocos, retarget, halving) e **Ajustes** (o panda.conf na
+interface).
+
+### Build
+
+A GUI usa cgo (renderização nativa), então **builde em cada sistema** — o
+script detecta o SO atual e reusa o `build.conf` (versão E regras de
+consenso, que valem também para o node embutido):
+
+```sh
+scripts/build-desktop.sh      # sai em dist/panda-node-desktop-<os>-<arch>
+```
+
+Pré-requisitos de compilação (só para quem builda; o binário final não
+depende de nada):
+
+| Sistema | Precisa de |
+|---|---|
+| macOS | Xcode Command Line Tools (`xcode-select --install`) |
+| Linux | `gcc`, `libgl1-mesa-dev`, `xorg-dev` |
+| Windows | MinGW-w64 (ou builde no WSL com os pacotes de Linux) |
+
+> 💡 Cross-compile da GUI é possível com
+> [fyne-cross](https://github.com/fyne-io/fyne-cross) (usa Docker), mas o
+> caminho simples é rodar o script uma vez em cada sistema.
+
+O node de terminal continua sendo o binário estático de sempre — o desktop
+é opcional, para quem quiser.
 
 ---
 

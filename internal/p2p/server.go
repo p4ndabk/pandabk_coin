@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"sort"
 	"sync"
@@ -232,6 +233,9 @@ func (s *Server) setupPeer(conn net.Conn, addr string, outbound bool) {
 	}()
 	remote, err := doHandshake(conn, s.localVersion())
 	if err != nil {
+		if !errors.Is(err, ErrSelfConnection) {
+			log.Printf("⚠️  handshake com %s falhou: %v", addr, err)
+		}
 		_ = conn.Close()
 		return
 	}
@@ -250,13 +254,21 @@ func (s *Server) setupPeer(conn net.Conn, addr string, outbound bool) {
 	s.mu.Unlock()
 	s.persistAddrBook()
 
+	dir := "entrada"
+	if outbound {
+		dir = "saída"
+	}
+	log.Printf("🤝 peer %s conectado (%s) — altura declarada %d", addr, dir, remote.Height)
+
 	_ = pc.send(TypeGetAddr, nil)
 	// Quem declarou mais trabalho acumulado tem a história que nos falta.
-	if _, _, ourWork := s.chain.Tip(); pc.work.Cmp(ourWork) > 0 {
+	if _, ourHeight, ourWork := s.chain.Tip(); pc.work.Cmp(ourWork) > 0 {
+		log.Printf("⛓️  %s tem mais trabalho acumulado (altura %d vs nossa %d) — sincronizando", addr, remote.Height, ourHeight)
 		s.startSync(pc)
 	}
 
 	s.readLoop(pc)
+	log.Printf("👋 peer %s desconectado", addr)
 
 	s.mu.Lock()
 	delete(s.peers, addr)
@@ -276,7 +288,9 @@ func (s *Server) readLoop(pc *peerConn) {
 			return
 		}
 		if err := s.handle(pc, env); err != nil {
-			return // violação de protocolo ou bloco inválido: derruba o peer
+			// violação de protocolo ou bloco inválido: derruba o peer
+			log.Printf("🚫 derrubando peer %s: %v", pc.addr, err)
+			return
 		}
 	}
 }

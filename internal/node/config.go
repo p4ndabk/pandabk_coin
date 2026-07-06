@@ -15,6 +15,11 @@ import (
 	"pandabk_coin/internal/params"
 )
 
+// DefaultProfile é o perfil de consenso default do binário. O build.conf do
+// desenvolvedor pode trocá-lo via -ldflags -X (chave profile=) — quem recebe
+// o binário pronto roda `node run` sem pensar em perfil.
+var DefaultProfile = "devnet"
+
 // Config do node. Flags primeiro, env NODE_* como fallback (mesmo padrão
 // getEnv de internal/config, sem tocá-lo).
 type Config struct {
@@ -34,6 +39,11 @@ func defaultDataDir() string {
 	}
 	return filepath.Join(home, ".panda")
 }
+
+// DefaultDataDir é o datadir padrão (~/.panda) — exportado para o app de
+// desktop ancorar o panda.conf dele num lugar fixo, independente do
+// diretório de onde foi aberto.
+func DefaultDataDir() string { return defaultDataDir() }
 
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
@@ -76,7 +86,7 @@ func RegisterFlags(fs *flag.FlagSet) (*Config, *string) {
 	fs.StringVar(&cfg.RPC, "rpc", getEnv("NODE_RPC", "127.0.0.1:8555"), "endereço da RPC local (obrigatoriamente loopback)")
 	fs.BoolVar(&cfg.Mine, "mine", getEnvBool("NODE_MINE", true), "minerar (padrão LIGADO, 1 worker — todo node contribui; desligue com -mine=false)")
 	fs.IntVar(&cfg.Miners, "miners", getEnvInt("NODE_MINERS", 1), "workers de mineração (1 core e ~64 MiB cada)")
-	fs.StringVar(&cfg.Profile, "profile", getEnv("NODE_PROFILE", "devnet"), "perfil de consenso: devnet ou test")
+	fs.StringVar(&cfg.Profile, "profile", getEnv("NODE_PROFILE", DefaultProfile), "perfil de consenso: devnet ou test")
 	peersCSV := fs.String("peers", getEnv("NODE_PEERS", ""), "peers iniciais host:porta, separados por vírgula")
 	return cfg, peersCSV
 }

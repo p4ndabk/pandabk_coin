@@ -60,3 +60,54 @@ func TestProfilesAreConsistent(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildOverridesCustomizeDevnet(t *testing.T) {
+	defer func() { buildSpacing, buildHalving, buildSubsidy, buildRetarget = "", "", "", "" }()
+	buildSpacing, buildHalving, buildSubsidy, buildRetarget = "30s", "500", "10", "20"
+
+	p := DevNet()
+	if p.TargetSpacing != 30e9 || p.HalvingInterval != 500 || p.InitialSubsidy != 10*CoinUnit || p.RetargetInterval != 20 {
+		t.Fatalf("overrides não aplicados: %v %d %d %d", p.TargetSpacing, p.HalvingInterval, p.InitialSubsidy, p.RetargetInterval)
+	}
+	if !p.CustomBuild || p.Name != "devnet-custom" {
+		t.Fatalf("build custom não marcado: CustomBuild=%v Name=%q", p.CustomBuild, p.Name)
+	}
+	// As regras têm que estar na mensagem do gênesis (mudam o hash = ID da rede)
+	// e o hash/nonce hardcoded têm que ter sido descartados.
+	if p.Genesis.Hash != ([32]byte{}) || p.Genesis.Nonce != 0 {
+		t.Fatal("gênesis hardcoded deveria ter sido descartado no build custom")
+	}
+	want := " [spacing=30s halving=500 subsidy=10 retarget=20]"
+	if got := p.Genesis.Message; len(got) < len(want) || got[len(got)-len(want):] != want {
+		t.Fatalf("mensagem do gênesis sem as regras: %q", got)
+	}
+
+	// TestNet fica imune: os testes unitários precisam de regras estáveis.
+	tp := TestNet()
+	if tp.CustomBuild || tp.HalvingInterval != 1000 {
+		t.Fatalf("TestNet não pode herdar overrides de build: %+v", tp)
+	}
+}
+
+func TestBuildOverridesRejectGarbage(t *testing.T) {
+	defer func() { buildSpacing, buildHalving, buildSubsidy, buildRetarget = "", "", "", "" }()
+	for _, bad := range []func(){
+		func() { buildSpacing = "rapidinho" },
+		func() { buildSpacing = "10ms" }, // < 1s
+		func() { buildHalving = "0" },
+		func() { buildSubsidy = "5000" },  // > 1000 PANDA
+		func() { buildRetarget = "1" },    // janela degenerada
+		func() { buildRetarget = "1e12" }, // não-numérico/absurdo
+	} {
+		buildSpacing, buildHalving, buildSubsidy, buildRetarget = "", "", "", ""
+		bad()
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("valor inválido (%q/%q/%q/%q) deveria dar panic com mensagem clara", buildSpacing, buildHalving, buildSubsidy, buildRetarget)
+				}
+			}()
+			DevNet()
+		}()
+	}
+}

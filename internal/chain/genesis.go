@@ -32,11 +32,14 @@ func GenesisBlock(p params.Params) *core.Block {
 
 // insertGenesis grava o bloco 0 num banco recém-criado. O gênesis é validado
 // por igualdade exata de hash contra params (regra 9 da SPEC) — isento das
-// demais regras, que pressupõem um pai.
+// demais regras, que pressupõem um pai. Exceção: num build com regras
+// próprias (CustomBuild, via build.conf) não há hash hardcoded para conferir
+// — o gênesis é derivado das regras e o ID resultante identifica a nova rede
+// no handshake (que já o calcula dinamicamente).
 func insertGenesis(btx *bolt.Tx, p params.Params) error {
 	g := GenesisBlock(p)
 	id := g.Header.ID()
-	if p.Genesis.Hash == ([32]byte{}) || id != p.Genesis.Hash {
+	if !p.CustomBuild && (p.Genesis.Hash == ([32]byte{}) || id != p.Genesis.Hash) {
 		return fmt.Errorf("%w: perfil %s (gênesis não minerado ou params divergentes)", ErrBadGenesis, p.Name)
 	}
 	if err := btx.Bucket(bucketBlocks).Put(id[:], g.Bytes()); err != nil {

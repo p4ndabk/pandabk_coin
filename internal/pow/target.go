@@ -56,6 +56,19 @@ func TargetToCompact(t *big.Int) uint32 {
 	return size<<24 | mantissa
 }
 
+// Difficulty expressa a dificuldade em escala humana: quantas vezes mais
+// difícil que o mínimo da rede (PowLimitBits) esse nBits é. 1.0 = dificuldade
+// mínima; 4.0 = precisa de 4× mais tentativas por bloco.
+func Difficulty(bits uint32, p params.Params) float64 {
+	target := CompactToTarget(bits)
+	limit := CompactToTarget(p.PowLimitBits)
+	if target == nil || limit == nil || target.Sign() <= 0 {
+		return 0
+	}
+	f, _ := new(big.Rat).SetFrac(limit, target).Float64()
+	return f
+}
+
 // BlockWork é quanto trabalho esperado um bloco com esses nBits representa.
 func BlockWork(bits uint32) *big.Int {
 	target := CompactToTarget(bits)

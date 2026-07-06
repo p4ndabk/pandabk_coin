@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"pandabk_coin/internal/chain"
 	"pandabk_coin/internal/core"
 	"pandabk_coin/internal/params"
+	"pandabk_coin/internal/pow"
 	"pandabk_coin/internal/wallet"
 )
 
@@ -77,28 +79,38 @@ func (n *Node) dispatch(req rpcRequest) (any, error) {
 // ── getinfo ─────────────────────────────────────────────────────────────────
 
 type infoResult struct {
-	Profile  string  `json:"profile"`
-	Height   uint64  `json:"height"`
-	Tip      string  `json:"tip"`
-	Work     string  `json:"work"`
-	Peers    int     `json:"peers"`
-	Mempool  int     `json:"mempool"`
-	Mining   bool    `json:"mining"`
-	HashRate float64 `json:"hashrate"`
-	Address  string  `json:"address,omitempty"`
+	Profile     string  `json:"profile"`
+	Height      uint64  `json:"height"`
+	Tip         string  `json:"tip"`
+	Work        string  `json:"work"`
+	Bits        string  `json:"bits"`
+	Difficulty  float64 `json:"difficulty"`
+	SpacingSecs int64   `json:"target_spacing_seconds"`
+	RewardPanda string  `json:"reward_panda"`
+	NextHalving uint64  `json:"next_halving"`
+	Peers       int     `json:"peers"`
+	Mempool     int     `json:"mempool"`
+	Mining      bool    `json:"mining"`
+	HashRate    float64 `json:"hashrate"`
+	Address     string  `json:"address,omitempty"`
 }
 
 func (n *Node) rpcGetInfo() (any, error) {
 	tip, height, work := n.chain.Tip()
 	id := tip.ID()
 	info := infoResult{
-		Profile: n.p.Name,
-		Height:  height,
-		Tip:     hex.EncodeToString(id[:]),
-		Work:    work.Text(16),
-		Peers:   n.srv.PeerCount(),
-		Mempool: n.mp.Len(),
-		Mining:  n.miner != nil,
+		Profile:     n.p.Name,
+		Height:      height,
+		Tip:         hex.EncodeToString(id[:]),
+		Work:        work.Text(16),
+		Bits:        fmt.Sprintf("%08x", tip.Bits),
+		Difficulty:  pow.Difficulty(tip.Bits, n.p),
+		SpacingSecs: int64(n.p.TargetSpacing / time.Second),
+		RewardPanda: FormatPanda(n.p.BlockSubsidy(height + 1)),
+		NextHalving: (height/n.p.HalvingInterval + 1) * n.p.HalvingInterval,
+		Peers:       n.srv.PeerCount(),
+		Mempool:     n.mp.Len(),
+		Mining:      n.miner != nil,
 	}
 	if n.miner != nil {
 		info.HashRate = n.miner.HashRate()

@@ -1,19 +1,15 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"pandabk_coin/internal/node"
+	"pandabk_coin/internal/rpcclient"
 )
 
 // runRun é o `node run`: o full node de verdade (M5) — chain validada em
@@ -49,17 +45,24 @@ func runRun(args []string) {
 	if listen == "" {
 		listen = "só saída (funciona atrás de NAT)"
 	}
-	fmt.Printf(`🐼 PANDA node no ar
+	p, _ := cfg.Params()
+	height, diff, subsidy := n.ChainStatus()
+	fmt.Printf(`🐼 PANDA node no ar (versão %s)
 
    perfil       %s
    datadir      %s
    p2p          %s
    rpc          %s   (info/balance/send falam aqui)
    mineração    %s
+   consenso     1 bloco a cada %s | retarget a cada %d blocos | halving a cada %d
+   recompensa   %s PANDA pelo próximo bloco
+   chain        altura %d, dificuldade %.2f
 
 Ctrl+C para encerrar com segurança.
 
-`, cfg.Profile, cfg.DataDir, listen, n.RPCAddr(), mining)
+`, version, cfg.Profile, cfg.DataDir, listen, n.RPCAddr(), mining,
+		p.TargetSpacing, p.RetargetInterval, p.HalvingInterval,
+		node.FormatPanda(subsidy), height, diff)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -71,39 +74,11 @@ Ctrl+C para encerrar com segurança.
 	}
 }
 
-// ── cliente RPC dos subcomandos ─────────────────────────────────────────────
+// ── cliente RPC dos subcomandos (internal/rpcclient, compartilhado com o
+// app de desktop) ───────────────────────────────────────────────────────────
 
 func rpcClient(addr, method string, params any, out any) error {
-	req := struct {
-		Method string `json:"method"`
-		Params any    `json:"params,omitempty"`
-	}{Method: method, Params: params}
-	body, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Post("http://"+addr+"/rpc", "application/json", bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("não consegui falar com o node em %s — ele está rodando? (%v)", addr, err)
-	}
-	defer resp.Body.Close()
-	var envelope struct {
-		Result json.RawMessage `json:"result"`
-		Error  *struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-		return fmt.Errorf("resposta inválida do node: %w", err)
-	}
-	if envelope.Error != nil {
-		return errors.New(envelope.Error.Message)
-	}
-	if out != nil {
-		return json.Unmarshal(envelope.Result, out)
-	}
-	return nil
+	return rpcclient.Call(addr, method, params, out)
 }
 
 func rpcFlag(fs *flag.FlagSet) *string {
@@ -122,28 +97,36 @@ func runInfo(args []string) {
 	applyConfig(fs, *configPath)
 
 	var info struct {
-		Profile  string  `json:"profile"`
-		Height   uint64  `json:"height"`
-		Tip      string  `json:"tip"`
-		Peers    int     `json:"peers"`
-		Mempool  int     `json:"mempool"`
-		Mining   bool    `json:"mining"`
-		HashRate float64 `json:"hashrate"`
-		Address  string  `json:"address"`
+		Profile     string  `json:"profile"`
+		Height      uint64  `json:"height"`
+		Tip         string  `json:"tip"`
+		Bits        string  `json:"bits"`
+		Difficulty  float64 `json:"difficulty"`
+		SpacingSecs int64   `json:"target_spacing_seconds"`
+		RewardPanda string  `json:"reward_panda"`
+		NextHalving uint64  `json:"next_halving"`
+		Peers       int     `json:"peers"`
+		Mempool     int     `json:"mempool"`
+		Mining      bool    `json:"mining"`
+		HashRate    float64 `json:"hashrate"`
+		Address     string  `json:"address"`
 	}
 	if err := rpcClient(*rpc, "getinfo", nil, &info); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("perfil     %s\naltura     %d\ntip        %s\npeers      %d\nmempool    %d tx(s)\n",
-		info.Profile, info.Height, info.Tip, info.Peers, info.Mempool)
+	fmt.Printf("perfil       %s\naltura       %d\ntip          %s\n", info.Profile, info.Height, info.Tip)
+	fmt.Printf("dificuldade  %.2f (bits %s)\n", info.Difficulty, info.Bits)
+	fmt.Printf("alvo         1 bloco a cada %ds\n", info.SpacingSecs)
+	fmt.Printf("recompensa   %s PANDA (próximo halving no bloco %d)\n", info.RewardPanda, info.NextHalving)
+	fmt.Printf("peers        %d\nmempool      %d tx(s)\n", info.Peers, info.Mempool)
 	if info.Mining {
-		fmt.Printf("minerando  sim (%.1f H/s)\n", info.HashRate)
+		fmt.Printf("minerando    sim (%.1f H/s)\n", info.HashRate)
 	} else {
-		fmt.Println("minerando  não")
+		fmt.Println("minerando    não")
 	}
 	if info.Address != "" {
-		fmt.Printf("endereço   %s\n", info.Address)
+		fmt.Printf("endereço     %s\n", info.Address)
 	}
 }
 

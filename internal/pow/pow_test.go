@@ -33,6 +33,23 @@ func TestCompactRoundTrip(t *testing.T) {
 	}
 }
 
+func TestDifficultyHumanScale(t *testing.T) {
+	p := params.DevNet()
+	// No limite da rede a dificuldade é exatamente 1.
+	if got := Difficulty(p.PowLimitBits, p); got != 1.0 {
+		t.Fatalf("Difficulty(PowLimit) = %v, esperava 1.0", got)
+	}
+	// Target 4× menor (2^246) = dificuldade 4×.
+	quarter := TargetToCompact(new(big.Int).Lsh(big.NewInt(1), 246))
+	if got := Difficulty(quarter, p); got != 4.0 {
+		t.Fatalf("Difficulty(2^246) = %v, esperava 4.0", got)
+	}
+	// nBits inválido não pode virar pânico nem infinito.
+	if got := Difficulty(0x20800000, p); got != 0 {
+		t.Fatalf("Difficulty(inválido) = %v, esperava 0", got)
+	}
+}
+
 func TestBlockWorkGrowsWithDifficulty(t *testing.T) {
 	easy := BlockWork(0x207fffff) // target ~2^255
 	hard := BlockWork(0x20010000) // target 2^248

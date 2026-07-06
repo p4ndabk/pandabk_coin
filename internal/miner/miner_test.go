@@ -87,19 +87,18 @@ func TestMinesValidBlocksAndCallsOnBlock(t *testing.T) {
 	mn.Start(ctx, func(b *core.Block) { mined.Add(1) })
 	defer mn.Stop()
 
+	// Espera pelo CONTADOR do onBlock, não pela altura: o tip avança dentro
+	// do AcceptBlock um instante antes do callback rodar — olhar a altura
+	// primeiro faria o teste flakar nessa janela.
 	deadline := time.Now().Add(15 * time.Second)
-	for time.Now().Before(deadline) {
-		if _, height, _ := h.c.Tip(); height >= 3 {
-			break
-		}
+	for time.Now().Before(deadline) && mined.Load() < 3 {
 		time.Sleep(20 * time.Millisecond)
 	}
-	_, height, _ := h.c.Tip()
-	if height < 3 {
-		t.Fatalf("miner deveria ter minerado ≥3 blocos, altura = %d", height)
-	}
 	if mined.Load() < 3 {
-		t.Fatalf("onBlock chamado %d vezes, esperava ≥3", mined.Load())
+		t.Fatalf("onBlock chamado %d vezes em 15s, esperava ≥3", mined.Load())
+	}
+	if _, height, _ := h.c.Tip(); height < 3 {
+		t.Fatalf("miner deveria ter minerado ≥3 blocos, altura = %d", height)
 	}
 	if mn.HashRate() <= 0 {
 		t.Fatal("hashrate deveria ser > 0 enquanto minera")

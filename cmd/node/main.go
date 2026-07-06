@@ -13,6 +13,10 @@ import (
 	"os"
 )
 
+// version é injetada pelos scripts de build (scripts/build-*.sh) via
+// -ldflags "-X main.version=...", lida do build.conf do desenvolvedor.
+var version = "dev"
+
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -37,6 +41,8 @@ func main() {
 		runGenesis(os.Args[2:])
 	case "wallet":
 		runWallet(os.Args[2:])
+	case "version", "-v", "--version":
+		fmt.Printf("panda-node %s\n", version)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -58,6 +64,7 @@ O node de verdade:
   send      envia PANDA: node send -to P... -amount 1.5
   wallet    new: gera sua chave/endereço (0600); address: reexibe
   genesis   (dev) minera o bloco 0 de um perfil
+  version   versão do binário (definida no build.conf de quem compilou)
 
 Bancada didática (a demo que precedeu o node):
   powdemo   corrida de mineradores com PoW real e recompensa simulada

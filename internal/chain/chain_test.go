@@ -426,3 +426,47 @@ func TestOpenRejectsWrongProfile(t *testing.T) {
 		t.Fatalf("err = %v, esperava ErrBadGenesis ao abrir banco de outra rede", err)
 	}
 }
+
+func TestCustomBuildGenesisFormsOwnNetwork(t *testing.T) {
+	// Um binário com regras próprias (build.conf) não tem gênesis hardcoded:
+	// o bloco 0 é derivado das regras e o hash vira o ID da nova rede.
+	custom := params.TestNet()
+	custom.CustomBuild = true
+	custom.TargetSpacing = 30 * time.Second
+	custom.Genesis.Message += " [spacing=30s]"
+	custom.Genesis.Nonce = 0
+	custom.Genesis.Hash = [32]byte{}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "chain.db")
+	c, err := Open(path, custom)
+	if err != nil {
+		t.Fatalf("Open com build custom: %v", err)
+	}
+	tip, height, _ := c.Tip()
+	if height != 0 || tip.ID() != GenesisBlock(custom).Header.ID() {
+		t.Fatalf("gênesis custom não é a ponta: altura %d", height)
+	}
+	c.Close()
+
+	// Reabrir com as MESMAS regras funciona (mesma rede)...
+	c, err = Open(path, custom)
+	if err != nil {
+		t.Fatalf("reabrir com as mesmas regras: %v", err)
+	}
+	c.Close()
+
+	// ...mas abrir com regras diferentes é OUTRA rede: erro, não corrupção.
+	other := custom
+	other.Genesis.Message = "PANDA test [spacing=15s]"
+	if _, err := Open(path, other); !errors.Is(err, ErrBadGenesis) {
+		t.Fatalf("regras diferentes deveriam dar ErrBadGenesis, veio %v", err)
+	}
+
+	// E o perfil test PADRÃO continua exigindo o hash hardcoded exato.
+	plain := params.TestNet()
+	plain.Genesis.Nonce = 99 // params divergentes
+	if _, err := Open(filepath.Join(dir, "outra.db"), plain); !errors.Is(err, ErrBadGenesis) {
+		t.Fatalf("perfil padrão com gênesis divergente deveria dar ErrBadGenesis, veio %v", err)
+	}
+}

@@ -1,0 +1,45 @@
+# build.conf — configuração do BUILD, para o DESENVOLVEDOR que compila.
+#
+# Responsabilidades bem separadas:
+#   build.conf  → como compilar (este arquivo; lido pelos scripts/build-*.sh)
+#   panda.conf  → como o NODE roda (peers, portas, datadir; lido pelo binário)
+#
+# Copie para build.conf e ajuste. Sem o build.conf, os scripts usam os
+# valores deste exemplo. Formato: chave=valor, # comenta.
+
+# Nome-base dos binários (vira panda-node-linux-amd64, panda-node-windows-amd64.exe, ...)
+name=panda-node
+
+# Pasta onde os binários prontos caem (gitignorada)
+outdir=dist
+
+# Versão embutida no binário — aparece em `panda-node version` e no banner
+# do `run`. Ajuste antes de distribuir para os amigos.
+version=0.1.0-dev
+
+# ── Regras de consenso do build (a economia DESTA rede) ────────────────────
+#
+# ⚠️  Definir qualquer regra abaixo muda o bloco gênesis — e gênesis é o ID
+# da rede: este binário passa a formar uma rede PRÓPRIA, que só conversa com
+# binários compilados com as MESMAS regras (o handshake p2p recusa o resto).
+# Distribua o mesmo build para todo mundo da sua rede.
+#
+# Comentado = usa o perfil devnet padrão do código (60s / 1000 / 50).
+
+# meta de tempo por bloco (formato Go: 30s, 1m, 10m)
+#spacing=1m
+
+# halving: a recompensa cai pela metade a cada N blocos
+#halving=1000
+
+# recompensa inicial por bloco, em PANDA inteiros (1 a 1000)
+#subsidy=50
+
+# reajuste de dificuldade a cada N blocos (2 a 100000; padrão 100).
+# Menor = a rede corrige o ritmo mais rápido (bom para redes novas/pequenas);
+# o ajuste continua limitado a 4× por vez.
+#retarget=100
+
+# perfil default do binário (devnet ou test) — quem recebe o build roda
+# `panda-node run` sem precisar saber o que é um perfil
+#profile=devnet

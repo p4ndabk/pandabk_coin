@@ -16,6 +16,7 @@ import (
 	"pandabk_coin/internal/miner"
 	"pandabk_coin/internal/p2p"
 	"pandabk_coin/internal/params"
+	"pandabk_coin/internal/pow"
 	"pandabk_coin/internal/wallet"
 )
 
@@ -72,6 +73,7 @@ func New(cfg Config) (*Node, error) {
 		Listen: cfg.Listen,
 		Seeds:  cfg.Peers,
 		OnBlockAccepted: func(b *core.Block) {
+			n.logBlock("📥 bloco %d recebido da rede", b)
 			if n.miner != nil {
 				n.miner.TipChanged() // bloco da rede: template atual morreu
 			}
@@ -115,12 +117,38 @@ func (n *Node) Start() error {
 	ctx, n.cancel = context.WithCancel(context.Background())
 	if n.miner != nil {
 		n.miner.Start(ctx, func(b *core.Block) {
-			id := b.Header.ID()
-			log.Printf("✅ bloco %d minerado (%d txs) — %x", b.Header.Height, len(b.Txs), id[:8])
-			n.srv.BroadcastBlock(id)
+			n.logBlock("✅ bloco %d minerado", b)
+			n.srv.BroadcastBlock(b.Header.ID())
 		})
 	}
 	return nil
+}
+
+// logBlock loga um bloco aceito (nosso ou da rede) com a dificuldade, e
+// anuncia os eventos de consenso que o bloco cruza: retarget (dificuldade
+// reajustada) e halving (recompensa cortada pela metade).
+func (n *Node) logBlock(verb string, b *core.Block) {
+	id := b.Header.ID()
+	diff := pow.Difficulty(b.Header.Bits, n.p)
+	log.Printf(verb+" (%d txs, dificuldade %.2f) — %x", b.Header.Height, len(b.Txs), diff, id[:8])
+
+	h := b.Header.Height
+	if h > 0 && n.p.RetargetInterval > 0 && h%n.p.RetargetInterval == 0 {
+		if prev, err := n.chain.GetBlock(b.Header.PrevHash); err == nil && prev.Header.Bits != b.Header.Bits {
+			old := pow.Difficulty(prev.Header.Bits, n.p)
+			log.Printf("🎯 retarget no bloco %d: dificuldade %.2f → %.2f (alvo: 1 bloco a cada %s)", h, old, diff, n.p.TargetSpacing)
+		}
+	}
+	if h > 0 && n.p.HalvingInterval > 0 && h%n.p.HalvingInterval == 0 {
+		log.Printf("✂️  halving no bloco %d: recompensa agora %s PANDA por bloco", h, FormatPanda(n.p.BlockSubsidy(h)))
+	}
+}
+
+// ChainStatus resume o estado para o banner da CLI: altura e dificuldade da
+// ponta, e a recompensa que o PRÓXIMO bloco pagará.
+func (n *Node) ChainStatus() (height uint64, difficulty float64, nextSubsidy uint64) {
+	tip, h, _ := n.chain.Tip()
+	return h, pow.Difficulty(tip.Bits, n.p), n.p.BlockSubsidy(h + 1)
 }
 
 // Stop desliga na ordem segura e fecha o bbolt por último.

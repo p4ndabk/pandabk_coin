@@ -45,3 +45,7 @@ mineracao*.log
 
 # Local Claude Code settings
 .claude/settings.local.json
+
+# Build (build.conf.example é o modelo commitado; dist/ é a saída dos scripts)
+build.conf
+/dist/

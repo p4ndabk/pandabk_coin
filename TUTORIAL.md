@@ -23,6 +23,12 @@ Sai um binário **estático, sem nenhuma dependência** — copie `bin/panda-nod
 para qualquer Mac, Linux ou Raspberry Pi e ele roda. Isso é de propósito: a
 meta do projeto é *um node em cada casa*.
 
+Para buildar **para os amigos** (outros sistemas), use os scripts oficiais —
+`scripts/build-linux.sh`, `scripts/build-macos.sh`, `scripts/build-windows.sh`
+ou `scripts/build-all.sh` — que leem o `build.conf` do desenvolvedor e
+deixam os binários em `dist/` com o sha256 de cada um (detalhes na
+[documentação oficial](docs/README.md#1-instalação)).
+
 ---
 
 ## Parte 1 — Criar sua wallet
@@ -213,12 +219,60 @@ p2p e **mineração ligada por padrão pagando a SUA wallet**.
 
 No primeiro `run`, o node cria sozinho uma wallet no datadir (default
 `~/.panda/wallet.json`, permissão 0600) e mostra o endereço — **faça backup
-dela** (Parte 1 explica por quê). Daí em diante:
+dela** (Parte 1 explica por quê). O banner já mostra as regras do jogo e o
+estado da sua chain:
+
+```
+🐼 PANDA node no ar
+
+   perfil       devnet
+   datadir      /Users/voce/.panda
+   p2p          [::]:9551
+   rpc          127.0.0.1:8555   (info/balance/send falam aqui)
+   mineração    LIGADA — 1 worker(s), 1 core e ~64 MiB cada
+   consenso     1 bloco a cada 1m0s | retarget a cada 100 blocos | halving a cada 1000
+   recompensa   50 PANDA pelo próximo bloco
+   chain        altura 342, dificuldade 4.00
+```
+
+E os logs narram a vida da rede — quem conecta, quem desconecta, cada bloco
+com sua dificuldade, e os eventos de consenso:
+
+```
+🤝 peer 192.168.1.20:53112 conectado (entrada) — altura declarada 0
+⛓️  192.168.1.10:9551 tem mais trabalho acumulado (altura 342 vs nossa 128) — sincronizando
+📥 bloco 129 recebido da rede (1 txs, dificuldade 4.00) — 9c01ab34
+✅ bloco 343 minerado (2 txs, dificuldade 4.00) — 3fca90e1
+🎯 retarget no bloco 400: dificuldade 4.00 → 5.10 (alvo: 1 bloco a cada 1m0s)
+✂️  halving no bloco 1000: recompensa agora 25 PANDA por bloco
+👋 peer 192.168.1.20:53112 desconectado
+```
+
+> **Os blocos estão saindo bem mais rápido que o alvo?** Normal no começo de
+> uma rede: todo mundo parte da **dificuldade mínima (1.00)** e o retarget só
+> corrige a cada 100 blocos, subindo no máximo 4× por vez. Em 2–3 retargets
+> (~200–300 blocos) o ritmo converge para o alvo de 1 bloco/minuto — acompanhe
+> pelas linhas 🎯. É o mesmo comportamento do Bitcoin em 2009.
+
+Daí em diante:
 
 ```sh
-./bin/panda-node info                          # altura, peers, hashrate
+./bin/panda-node info                          # estado do node (abaixo)
 ./bin/panda-node balance                       # seu saldo (coinbases maduras)
 ./bin/panda-node send -to P... -amount 1.5     # envia PANDA
+```
+
+```
+perfil       devnet
+altura       342
+tip          8a3f...
+dificuldade  4.00 (bits 1e040000)
+alvo         1 bloco a cada 60s
+recompensa   50 PANDA (próximo halving no bloco 1000)
+peers        2
+mempool      0 tx(s)
+minerando    sim (21.7 H/s)
+endereço     PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1
 ```
 
 Dois nodes na mesma máquina (ou dois computadores — troque 127.0.0.1 pelo
@@ -238,6 +292,13 @@ confirmação (a recompensa de minerar leva 10 blocos para "maturar" antes de
 poder ser gasta — regra de consenso). Quem quiser só validar sem minerar:
 `-mine=false`. O `panda.conf` também funciona aqui (chaves `datadir`,
 `listen`, `rpc`, `peers`/`peer`, `mine`, `miners`, `profile`).
+
+### Prefere uma janela?
+
+Existe também o **app de desktop** (`scripts/build-desktop.sh`): a mesma
+coisa que os comandos acima, numa interface nativa clean — e se não houver
+node rodando, o próprio app vira o node. Detalhes na
+[documentação oficial, seção 13](docs/README.md#13-app-de-desktop).
 
 ## Parte 4 — Em que estágio isso está (honestidade obrigatória)
 

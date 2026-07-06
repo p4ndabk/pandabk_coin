@@ -3,6 +3,7 @@ package chain
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -60,7 +61,7 @@ func Open(path string, p params.Params) (*Chain, error) {
 		want := g.Header.ID()
 		if got := btx.Bucket(bucketHeight).Get(heightKey(0)); got != nil {
 			if !bytes.Equal(got, want[:]) {
-				return ErrBadGenesis
+				return fmt.Errorf("%w — este datadir pertence a OUTRA rede (perfil ou regras de build diferentes). Guarde/remova o chain.db antigo para começar nesta rede, ou use outro -datadir; a wallet.json continua válida", ErrBadGenesis)
 			}
 			return nil
 		}
