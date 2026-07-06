@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Builda o PANDA Desktop (GUI nativa em Go/Fyne) para a MÁQUINA ATUAL.
+# Builda SÓ o PANDA Desktop (GUI nativa em Go/Fyne) para a MÁQUINA ATUAL —
+# atalho de desenvolvimento. O pacote de distribuição completo (que já
+# inclui o desktop quando buildado no próprio SO) sai dos scripts
+# build-linux.sh / build-macos.sh / build-windows.sh.
 #
-# A GUI usa cgo (renderização nativa), então NÃO cross-compila como o node —
-# builde em cada sistema (ou use fyne-cross com Docker, veja a documentação).
+# A GUI usa cgo (renderização nativa), então NÃO cross-compila como o node.
 # Pré-requisitos: macOS = Xcode Command Line Tools; Linux = gcc,
 # libgl1-mesa-dev, xorg-dev; Windows = MinGW-w64.
 #
@@ -16,7 +18,7 @@ goos="$(go env GOOS)"
 goarch="$(go env GOARCH)"
 ext=""
 [ "$goos" = "windows" ] && ext=".exe"
-out="$ROOT/$OUTDIR/$NAME-desktop-$goos-$goarch$ext"
+out="$ROOT/$OUTDIR/panda-desktop-$goos-$goarch$ext"
 
 echo "→ desktop $goos/$goarch (cgo)"
 CGO_ENABLED=1 go build -C "$ROOT" -trimpath \
@@ -24,4 +26,6 @@ CGO_ENABLED=1 go build -C "$ROOT" -trimpath \
   -o "$out" ./cmd/desktop
 echo "  $out"
 echo "  sha256 $(sha256 "$out")"
-echo "✅ Desktop pronto para $goos. Para os outros sistemas, rode este script lá (ou fyne-cross)."
+label="$goos"
+[ "$goos" = "darwin" ] && label="macos"
+echo "✅ Desktop pronto para $goos. Pacote completo de cliente: scripts/build-$label.sh"

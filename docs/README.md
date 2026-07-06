@@ -56,7 +56,7 @@ go build -o bin\panda-node.exe .\cmd\node
 
 ### Build para outras máquinas (scripts oficiais)
 
-Você builda no seu computador e manda o binário pronto para os amigos —
+Você builda no seu computador e manda **um pacote pronto** para os amigos —
 eles não precisam de Go, nem de instalar nada. Cada sistema tem seu script:
 
 ```sh
@@ -66,8 +66,29 @@ scripts/build-windows.sh    # Windows: .exe para amd64 + arm64
 scripts/build-all.sh        # os três de uma vez
 ```
 
-Os binários caem em `dist/`, cada um com o **sha256 impresso** — mande o
-hash junto para o amigo conferir que o arquivo chegou íntegro.
+Cada script monta um pacote completo em `dist/<so>/` e o compactado
+versionado para enviar (`dist/panda-<versão>-<so>.tar.gz`, `.zip` no
+Windows). Dentro do pacote:
+
+```
+dist/macos/
+  panda-node-arm64      binários estáticos do node (o instalador escolhe)
+  panda-node-amd64
+  panda-desktop         o app com janela — entra quando o build roda no próprio SO*
+  panda.conf            configuração pronta para editar (linha peers=)
+  instalar.sh           escolhe o binário da CPU, dá permissão (e no macOS
+                        remove a quarentena do Gatekeeper); Windows: instalar.bat
+  LEIA-ME.txt           instruções de 3 passos para o amigo
+  VERSAO.txt            versão, regras de consenso do build, data e commit
+  SHA256SUMS.txt        conferência de integridade de cada arquivo
+```
+
+O amigo recebe o compactado, extrai, roda o instalador, edita o
+`panda.conf` e sobe o node — três passos, descritos no LEIA-ME.
+
+\* o desktop usa cgo e não cross-compila: `build-macos.sh` num Mac inclui o
+desktop de Mac; para o desktop de Linux/Windows, rode o script no próprio
+sistema (o pacote avisa quando ele ficou de fora).
 
 Os scripts leem o **`build.conf`** (copie de `build.conf.example`), que é a
 configuração **do desenvolvedor que compila** — responsabilidade separada
@@ -602,12 +623,14 @@ retarget, halving) e **Ajustes** (o panda.conf na interface).
 
 ### Build
 
-A GUI usa cgo (renderização nativa), então **builde em cada sistema** — o
-script detecta o SO atual e reusa o `build.conf` (versão E regras de
-consenso, que valem também para o node embutido):
+A GUI usa cgo (renderização nativa), então **builde em cada sistema**. O
+pacote de distribuição (`scripts/build-<so>.sh`, seção 2) **já inclui o
+desktop** quando roda no próprio SO — este script é o atalho de
+desenvolvimento que builda só a GUI, reusando o `build.conf` (versão E
+regras de consenso, que valem também para o node embutido):
 
 ```sh
-scripts/build-desktop.sh      # sai em dist/panda-node-desktop-<os>-<arch>
+scripts/build-desktop.sh      # sai em dist/panda-desktop-<os>-<arch>
 ```
 
 Pré-requisitos de compilação (só para quem builda; o binário final não
