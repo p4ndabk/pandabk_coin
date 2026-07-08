@@ -28,6 +28,64 @@ O **bloco gênesis** é o bloco 0, idêntico e hardcoded em todos os nós — o
 ponto de partida do acordo. Seu hash funciona como "ID da rede" no handshake
 P2P: quem tem outro gênesis está em outra rede.
 
+## Decisões & porquês (regra e arquitetura)
+
+`chain` é o único pacote com autoridade para dizer "isto entra na história". As
+decisões aqui são sobre *integridade sob falha* e *convergência sem
+coordenador*.
+
+- **bbolt como storage, não SQLite/GORM.** O node inteiro é um binário estático
+  `CGO_ENABLED=0`; SQLite (mesmo o pure-Go) e GORM trariam peso e uma camada de
+  ORM que não cabe num consenso que fala em bytes e buckets. bbolt é um
+  key-value transacional em arquivo único, sem CGO, com exatamente a semântica
+  que precisamos: chave→valor por bucket e transações ACID. (É por isso que o
+  node vive fora do skeleton Gin/GORM do resto do repo.)
+- **Connect de bloco é UMA transação bbolt (tudo ou nada).** Conectar um bloco
+  toca vários buckets (blocks, blockIndex, heightIndex, utxo, undo, meta). Se um
+  crash acontecesse no meio, o UTXO set poderia ficar inconsistente com a cadeia
+  — corrupção silenciosa que só apareceria blocos depois. Envolver tudo numa
+  transação única garante que ou o bloco entra inteiro, ou não entra: o banco
+  nunca fica num estado intermediário.
+- **Undo sets persistidos por bloco.** Um reorg precisa *desfazer* blocos:
+  restaurar os UTXOs que eles gastaram e remover os que criaram. Recalcular isso
+  reexecutando a cadeia ao contrário seria caro e propenso a erro; guardar
+  explicitamente "o que este bloco consumiu" (o undo set) torna o reorg uma
+  operação local e determinística. É memória em disco trocada por reorg correto e
+  rápido.
+- **Fork choice por trabalho acumulado, reorg completo re-validando cada bloco.**
+  A ponta ativa é a de maior `cumWork`; quando um ramo lateral ultrapassa, o node
+  desconecta até o ponto de bifurcação e reconecta o vencedor **validando cada
+  bloco por inteiro de novo**. Não confiamos que um bloco lateral já validado
+  continue válido no novo contexto de UTXO — revalidar é a diferença entre um
+  reorg seguro e aceitar um double-spend que só é visível no ramo novo.
+- **MTP-11 (mediana dos 11 timestamps) e janela de +2 min no futuro.** Timestamp
+  de bloco é auto-declarado pelo minerador; sem regra, ele poderia mentir para
+  manipular o retarget. Exigir timestamp acima da mediana dos últimos 11 blocos
+  (não do último — que é manipulável isolado) e abaixo de "agora + 2 min" limita
+  a fraude a uma janela estreita. É a mesma defesa do Bitcoin.
+- **Double-spend checado inclusive *dentro do mesmo bloco*.** Não basta que cada
+  input aponte para um UTXO existente no banco; dois inputs do mesmo bloco não
+  podem gastar o mesmo output. Validar só contra o UTXO set persistido deixaria
+  passar um double-spend intra-bloco — por isso a validação rastreia os gastos
+  ao longo do próprio bloco.
+- **Gênesis hardcoded e isento das regras de validação.** O bloco 0 não tem pai
+  nem histórico contra o qual se validar; ele *é* o ponto de partida do acordo.
+  Conferi-lo por hash exato contra `params.Genesis` (em vez de rodar as regras
+  normais) e embutir esse hash no handshake P2P transforma "estar na mesma rede"
+  numa checagem de um hash — builds com regras diferentes têm gênesis diferente e
+  se recusam mutuamente por construção.
+- **Orphan pool limitado com evict FIFO (~100).** Um bloco cujo pai ainda não
+  chegou é guardado à espera. Sem limite, um peer malicioso poderia inundar a
+  memória com órfãos que nunca resolvem. O cap com descarte do mais antigo troca
+  completude por uma superfície de DoS fechada — o node caseiro não pode ficar
+  refém de memória.
+- **Sem pruning, sem checkpoints, sem índice global por txid.** Guardamos todos
+  os blocos (auditabilidade total e didática — dá para explorar qualquer bloco);
+  não cravamos checkpoints (a segurança vem só do PoW acumulado, sem "confie
+  neste hash"); e indexamos apenas o necessário para validação e saldo. Cada
+  "não fazer" é uma complexidade que a fase atual não justifica e que teria seu
+  próprio custo de manutenção e de consenso.
+
 ## Objetivo
 
 Validar blocos contra todas as regras de consenso, persistir a cadeia e o UTXO

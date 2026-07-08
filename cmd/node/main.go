@@ -17,6 +17,15 @@ import (
 // -ldflags "-X main.version=...", lida do build.conf do desenvolvedor.
 var version = "dev"
 
+// banner é a cara do node no terminal — aparece no help e na subida do run.
+const banner = `
+                        __                      __
+ .-----.---.-.-----.--|  .---.-.   .----.-----|__.-----.
+ |  _  |  _  |     |  _  |  _  |   |  __|  _  |  |     |
+ |   __|___._|__|__|_____|___._|   |____|_____|__|__|__|
+ |__|                            🐼  um node em cada casa
+`
+
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -46,7 +55,11 @@ func main() {
 	case "version", "-v", "--version":
 		fmt.Printf("panda-node %s\n", version)
 	case "help", "-h", "--help":
-		usage()
+		if len(os.Args) > 2 {
+			helpFor(os.Args[2])
+		} else {
+			usage()
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "subcomando desconhecido: %q\n\n", os.Args[1])
 		usage()
@@ -55,7 +68,13 @@ func main() {
 }
 
 func usage() {
-	fmt.Print(`node — full node da PANDA Coin
+	fmt.Print(banner)
+	fmt.Printf(`
+ panda-node %s — o full node da PANDA Coin
+
+USO
+  panda-node <comando> [flags]
+  panda-node help <comando>      flags de um comando (idem: <comando> -h)
 
 O node de verdade:
   run       sobe o full node: chain validada (bbolt), mempool, rede p2p e
@@ -67,7 +86,8 @@ O node de verdade:
   block     explora um bloco por dentro: node block 42 | node block <hash>
             (vazio = a ponta) — coinbase, transações, valores e destinos
   wallet    new: gera chave + 12 palavras de backup (BIP39); restore: recupera
-            a carteira só com as palavras; address: reexibe o endereço
+            a carteira só com as palavras; words: reexibe as palavras;
+            address: reexibe o endereço
   genesis   (dev) minera o bloco 0 de um perfil
   version   versão do binário (definida no build.conf de quem compilou)
 
@@ -115,5 +135,41 @@ Exemplos:
   # que o Mac A da Alice já tenha sido desligado:
   node powdemo -db bob.db -peer 192.168.1.10:9551 -listen :9552 -name Bob -blocks 0
   node powdemo -db carol.db -peer 192.168.1.11:9552 -name Carol -blocks 0
+`, version)
+}
+
+// helpFor delega para o -h do próprio comando — o flag package imprime os
+// flags e sai; wallet não usa um FlagSet único, então o texto vem daqui.
+func helpFor(cmd string) {
+	switch cmd {
+	case "run":
+		runRun([]string{"-h"})
+	case "info":
+		runInfo([]string{"-h"})
+	case "balance":
+		runBalance([]string{"-h"})
+	case "send":
+		runSend([]string{"-h"})
+	case "block":
+		runBlock([]string{"-h"})
+	case "powdemo":
+		runPowDemo([]string{"-h"})
+	case "blocks":
+		runBlocks([]string{"-h"})
+	case "ranking":
+		runRanking([]string{"-h"})
+	case "genesis":
+		runGenesis([]string{"-h"})
+	case "wallet":
+		fmt.Print(`uso: panda-node wallet <subcomando> [-file wallet.json | -datadir DIR]
+  new       gera chave nova + 12 palavras de backup (nunca sobrescreve)
+  restore   recupera a carteira: wallet restore palavra1 ... palavra12
+  words     reexibe as 12 palavras da wallet (só para os SEUS olhos)
+  address   reexibe o endereço (alias: show)
 `)
+	default:
+		fmt.Fprintf(os.Stderr, "comando desconhecido: %q\n\n", cmd)
+		usage()
+		os.Exit(2)
+	}
 }

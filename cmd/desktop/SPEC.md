@@ -23,6 +23,47 @@ inspiração Apple** — tema claro/escuro com um acento só (azul), fonte Inter
 embutida, cartões com números grandes em vez de tabelas de servidor. O app
 deve parecer uma carteira, não um terminal.
 
+## Decisões & porquês (regra e arquitetura)
+
+O desktop existe para uma pessoa que nunca abriu um terminal ter um node em
+casa. Cada decisão remove uma fricção sem duplicar o que o node já faz.
+
+- **Um caminho só de dados: a GUI fala com o node pela mesma RPC local da CLI.**
+  Nos dois modos (painel de node externo ou node embutido) a interface usa
+  `internal/rpcclient` — o mesmo canal do `panda-node info/balance/send`. Isso
+  evita uma segunda implementação de acesso ao estado (e uma segunda fonte de
+  bugs), e respeita o bbolt single-writer: a GUI nunca abre o banco de um node
+  vivo. A regra "ninguém além do processo do node escreve no banco" é a mesma do
+  CLI, herdada de graça.
+- **Híbrido: detecta node externo, senão embute o node no próprio processo.** Ao
+  abrir, tenta `getinfo` com timeout curto. Achou → vira painel do node que já
+  roda (não sobe um segundo node competindo pelo datadir). Não achou → importa
+  `internal/node` e roda o node dentro da própria janela. É tudo Go, então
+  embutir é só uma chamada — o usuário não precisa saber que "node" e "app" são
+  coisas distintas. Fechar a janela desliga o node embutido na ordem segura
+  (p2p→miner→RPC→bbolt), a mesma do `run`.
+- **Config idêntica à do CLI (flag > panda.conf > env > default), ancorada em
+  `~/.panda/panda.conf`.** Reusar a precedência do node significa que a GUI e o
+  terminal enxergam o mesmo node com a mesma config — editar pela aba Ajustes é
+  editar o mesmo arquivo que o CLI lê. Ancorar num caminho fixo (não no diretório
+  de abertura) é o que faz o clique duplo no Finder funcionar; `-config` e um
+  panda.conf no diretório atual ainda vencem, para não quebrar o fluxo CLI.
+- **Regras de consenso do build.conf valem também no desktop.** O
+  `scripts/build-desktop.sh` reusa os mesmos `-ldflags` do node. Se o desktop
+  pudesse ser compilado com regras diferentes do node, o app formaria uma rede
+  separada do binário CLI do mesmo pacote — exatamente o acidente que o gênesis
+  derivado existe para impedir. Um build, uma rede.
+- **Tela de pré-configuração antes do primeiro boot.** Sem panda.conf salvo, o
+  app pede peers/mineração/portas *antes* de ligar o node, em vez de subir com
+  defaults e deixar o usuário leigo sem peers (um node sozinho não faz nada
+  visível). A primeira experiência é "configurei e conectei", não "abri e nada
+  aconteceu".
+- **Não-objetivos v1 declarados (liga/desliga mineração, tray, gráficos,
+  cross-compile da GUI).** Ligar mineração pela GUI pede uma RPC `setmining` que
+  ainda não existe (v2); tray/gráficos/i18n são polimento; a GUI usa cgo e por
+  isso é buildada nativa em cada OS (`fyne-cross` opcional). Cada corte mantém a
+  v1 focada em "ver o node e enviar PANDA", que é o que prova o produto.
+
 ## Escopo (v1)
 
 - [x] Decisão híbrida: painel de node externo OU node embutido

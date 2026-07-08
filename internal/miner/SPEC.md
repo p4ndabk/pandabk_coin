@@ -27,6 +27,48 @@ mais cores aumenta via config. Não há vantagem em hardware exótico (ver
 `internal/pow/SPEC.md`), então a rede cresce em número de participantes, não
 em consumo por participante.
 
+## Decisões & porquês (regra e arquitetura)
+
+O miner é onde a aposta de produto ("um node em cada casa, minerando um pouco")
+encontra o código. As decisões são sobre *não desperdiçar trabalho* e *não
+dominar a máquina*.
+
+- **Default de 1 worker, opt-in para mais.** Minerar é o comportamento padrão do
+  node (é o que descentraliza), mas não pode tornar a máquina do usuário
+  inutilizável — senão ninguém deixa ligado, e a rede morre. Um worker (1 core,
+  ~64 MiB) é o custo mínimo de participar; quem quer doar mais aumenta
+  conscientemente. O default protege a adoção, que é a segurança da rede.
+- **Paralelismo por workers, não por threads do Argon2.** N goroutines varrendo
+  faixas de nonce *disjuntas* (via extranonce por worker) escalam a busca sem
+  mudar o custo de um hash. Se aumentássemos as threads internas do Argon2, o
+  hash dependeria do hardware e deixaria de ser verificável entre máquinas (ver
+  `params`: `Argon2Threads = 1`). Escalar "para fora" mantém o PoW determinístico.
+- **Template sempre sobre `chain.Tip()`; novo tip cancela via `context`
+  imediatamente.** Trabalho sobre um tip velho é lixo — o bloco nasceria órfão.
+  Assinar o evento de "tip mudou" (local ou da rede) e cancelar os workers na
+  hora, remontando o template, garante que todo ciclo de CPU vai para o bloco que
+  ainda pode vencer. É a diferença entre minerar e desperdiçar energia.
+- **Coinbase limitada a `BlockSubsidy(height) + Σ taxas`, montada localmente.** O
+  miner poderia "tentar" pagar a si mesmo mais que o permitido, mas a chain
+  rejeitaria o bloco — trabalho perdido. Respeitar o teto na montagem evita
+  minerar algo que seria recusado. O endereço de pagamento é a wallet do datadir,
+  o que amarra "minerar por padrão" a "ter um destino para a moeda" (por isso o
+  node cria a wallet no primeiro `run`).
+- **Minerar bloco só-coinbase quando o mempool está vazio é válido e desejado.**
+  No começo da rede (ou em períodos sem transações) não há txs para incluir; um
+  bloco só com a coinbase ainda avança a cadeia, emite moeda e mantém o retarget
+  funcionando. Tratar isso como caso normal (não erro) é o que deixa a rede
+  arrancar do zero.
+- **Estado efêmero, sem persistência.** O template e os contadores por worker
+  vivem só na memória do processo — se o node reinicia, remonta do tip atual. Não
+  há nada a salvar: o valor está na cadeia (persistida pela `chain`), não no
+  trabalho em andamento.
+- **Sem stratum, sem pools, sem GPU, sem auto-tuning.** Pools e stratum
+  centralizariam a mineração — exatamente o que o Argon2id memory-hard existe para
+  evitar. GPU não traz vantagem relevante (o gargalo é memória). Auto-tuning de
+  workers pela carga da máquina é conveniência de evolução futura. Cada ausência
+  é coerente com o ponto do projeto, não uma lacuna.
+
 ## Objetivo
 
 Produzir blocos válidos a partir do mempool, com orçamento de CPU/memória

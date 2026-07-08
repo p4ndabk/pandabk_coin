@@ -47,7 +47,9 @@ func runRun(args []string) {
 	}
 	p, _ := cfg.Params()
 	height, diff, subsidy := n.ChainStatus()
-	fmt.Printf(`🐼 PANDA node no ar (versão %s)
+	fmt.Print(banner)
+	fmt.Printf(`
+ PANDA node no ar (versão %s)
 
    perfil       %s
    datadir      %s

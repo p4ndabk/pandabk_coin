@@ -21,6 +21,57 @@ correspondente.
 Perder a chave privada = perder os fundos, para sempre — não existe "esqueci a
 senha" em blockchain. Por isso o arquivo da wallet tem permissão 0600.
 
+## Decisões & porquês (regra e arquitetura)
+
+A wallet lida com o segredo que controla dinheiro irreversível. As decisões aqui
+priorizam *não perder a chave* e *interoperar com padrões abertos* acima de
+qualquer conveniência.
+
+- **Depende só de `core`/`params`, nunca de `chain`.** A wallet não consulta a
+  blockchain: quem constrói a tx recebe os UTXOs de fora (o RPC do node os
+  fornece). Isso mantém a direção de dependências (`wallet` é folha, como o
+  miner) e permite construir/assinar transações sem carregar o banco — a wallet é
+  testável e usável isolada. O tipo `chainlike.UTXO` existe justamente para não
+  puxar `chain` só por causa de uma struct.
+- **`crypto/rand` exclusivamente, nunca `math/rand`.** A entropia da chave é a
+  única coisa entre o fundo e um atacante. `math/rand` é previsível (seed
+  determinística) — uma chave gerada com ele é adivinhável. Esta é uma regra
+  absoluta, não uma preferência.
+- **ECDSA P-256 da stdlib, não uma curva/lib exótica.** P-256 (`crypto/ecdsa`) é
+  auditada, ubíqua e suficiente. Trocá-la por secp256k1 (a do Bitcoin) traria uma
+  dependência externa para hand-rolar cripto sensível sem ganho real para o
+  projeto — a compatibilidade com carteiras Bitcoin nunca foi meta.
+- **Criação com `O_EXCL` — nunca sobrescrever uma wallet existente.** `New`/
+  `Restore` falham se o arquivo já existe. Sobrescrever silenciosamente uma
+  `wallet.json` apagaria a chave e, com ela, os fundos, de forma irreversível.
+  Falhar alto é o comportamento seguro; o custo (o usuário apaga de propósito se
+  quiser) é aceitável frente à perda total.
+- **Permissão 0600 no arquivo.** A chave privada em claro no disco só pode ser
+  lida pelo dono. É a proteção mínima contra outro usuário da mesma máquina — de
+  novo, barata e não-negociável para um segredo desse peso.
+- **Seleção de UTXO largest-first.** Ordenar por valor decrescente e acumular até
+  cobrir `amount + fee` minimiza o *número* de inputs na tx — menos inputs = tx
+  menor = taxa menor = menos assinaturas a verificar. Não é ótimo para a
+  privacidade nem para a fragmentação do UTXO set, mas é o previsível e barato,
+  adequado ao escopo.
+- **Troco abaixo da poeira vira taxa, não um output minúsculo.** Criar um output
+  de troco de 500 subunidades geraria um UTXO que custa mais em taxa para gastar
+  do que vale — lixo permanente no UTXO set de todos os nós. Incorporá-lo à taxa
+  é mais limpo para a rede inteira.
+- **BIP39 (12 palavras) + SLIP-0010, padrões abertos.** O backup usa a lista
+  inglesa de 2048 palavras do BIP39 e a derivação SLIP-0010 para nist256p1 — não
+  um esquema caseiro. Assim as mesmas 12 palavras recuperam a carteira em
+  *qualquer* implementação que siga as specs (ex.: Python `mnemonic` +
+  SLIP-0010), e os testes cravam os vetores oficiais (Trezor BIP39; SLIP-0010
+  vector 1). Um formato próprio prenderia o usuário a este binário — o oposto do
+  que um backup deve garantir. Wallets antigas (chave aleatória, pré-frase)
+  seguem válidas, só sem mnemônico: nunca quebramos uma wallet existente.
+- **Sem criptografia do arquivo, sem HD multi-endereço (não-metas declaradas).**
+  Cifrar a `wallet.json` com senha adicionaria um fluxo de "esqueci a senha" que
+  é justamente o que blockchain não perdoa; HD wallets (múltiplos endereços de
+  uma seed) são conveniência que a fase atual não precisa. São limites
+  conscientes, não omissões.
+
 ## Objetivo
 
 Gerar e persistir pares de chaves, derivar endereços, e construir/assinar

@@ -22,6 +22,58 @@ com o node em execução via **RPC JSON em localhost** — necessário porque o
 bbolt aceita um único processo escritor: o comando `node balance` não pode
 abrir o banco enquanto o node roda, então pergunta ao node pela porta RPC.
 
+## Decisões & porquês (regra e arquitetura)
+
+`node` é a cola: não tem regra de consenso própria, mas decide *como os
+subsistemas se ligam* e *como o dono controla o node*. As decisões são sobre
+ciclo de vida seguro e uma superfície de controle que não vira buraco de
+segurança.
+
+- **Wiring manual, sem DI, sem Gin/GORM.** O node monta chain→mempool→p2p→miner à
+  mão no `Node`, igual ao `cmd/api/main.go` do skeleton faz com seus serviços. Um
+  container de injeção esconderia a ordem de dependência que aqui é justamente o
+  que precisa estar explícito (e é o que a ordem de shutdown depende). O node vive
+  fora do stack Gin/GORM de propósito: é um binário estático de consenso, não uma
+  API web.
+- **RPC em `net/http` da stdlib, bind exclusivo em loopback.** A RPC é a interface
+  de *controle do dono* (ver saldo, enviar, desligar) — não uma API pública.
+  Recusar bind fora de `127.0.0.1` por construção significa que expor o node à
+  internet não vaza controle por acidente; não há autenticação justamente porque
+  não há como alcançá-la de fora. Gin seria peso morto para meia dúzia de métodos
+  locais.
+- **CLI fala com o node por RPC porque o bbolt é single-writer.** Só um processo
+  pode escrever no banco. Se `node balance` abrisse o bbolt diretamente,
+  competiria com o `run` e um dos dois falharia (ou pior, corromperia). Perguntar
+  pela porta RPC ao node em execução é o que permite consultar/enviar com o node
+  ligado. É a razão de a RPC existir, não um luxo.
+- **Envelope de erro `{code, message}` espelha o `apierror`, sem importá-lo.** O
+  node não usa Gin, então não pode usar o `apierror` do skeleton; mas repetir o
+  *formato* de erro mantém a consistência de resposta entre as duas metades do
+  repo sem criar uma dependência do node no mundo HTTP. Convenção compartilhada,
+  acoplamento não.
+- **Minerar é default (opt-out `--mine=false`), e exige wallet.** Detalhado no
+  `miner`, mas a consequência de orquestração mora aqui: se o node vai minerar por
+  padrão, precisa de um endereço para a coinbase — então o primeiro `run` cria a
+  wallet (0600) e loga o endereço. A alternativa (minerar desligado por default)
+  significaria uma rede que não arranca sozinha; escolhemos que instalar o node
+  já é contribuir.
+- **Config em camadas: flag > arquivo `panda.conf` > env `NODE_*` > default.** A
+  mesma chave pode vir de quatro lugares, com precedência clara. Flags para o
+  ajuste pontual, arquivo para o setup persistente (menos flags repetidos), env
+  para container/systemd, default para "só funciona". Espelha o `getEnv` do
+  `internal/config` sem tocá-lo — o node tem sua config, mas segue o padrão da
+  casa.
+- **Shutdown em ordem estrita: p2p → miner → bbolt.** Fechar o banco antes de
+  parar quem escreve nele (miner e p2p aceitando blocos) corromperia uma
+  transação em voo. A ordem não é estética: parar as fontes de escrita primeiro e
+  o banco por último é o que garante que o SIGINT durante um IBD deixe o disco
+  consistente. bbolt ser transacional cobre o resto.
+- **Processo foreground simples, sem daemon/systemd/TUI/métricas.** O node é um
+  processo que você liga e vê o log; empacotar daemonização, TUI ou Prometheus
+  agora seria resolver problemas que o node doméstico ainda não tem. São
+  evoluções futuras declaradas, não ausências acidentais — a superfície mínima é
+  mais fácil de manter e de auditar.
+
 ## Objetivo
 
 Orquestrar os subsistemas com ciclo de vida limpo (start/stop), expor a RPC

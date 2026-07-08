@@ -18,6 +18,47 @@ acontece um **reorg** (a cadeia troca de ramo), as transações do ramo
 abandonado que não estão no novo ramo voltam ao mempool — ninguém perde a
 transação, ela só volta pra fila.
 
+## Decisões & porquês (regra e arquitetura)
+
+O mempool é a única parte "de política" do node (o que *aceitar* esperar), em
+contraste com a chain, que é "de consenso" (o que é *válido*). As decisões aqui
+equilibram simplicidade e proteção contra abuso.
+
+- **Estrutura pura em memória + mutex; a persistência é do `node`.** O mempool
+  em si é um `map` protegido por mutex, sem I/O — fácil de raciocinar e de testar
+  com `-race`. Ele expõe `AllTxs()` e o `internal/node` (em `mempoolfile.go`) é
+  quem tira o snapshot no shutdown e recarrega no boot. Essa divisão mantém o
+  mempool sem dependência de disco (a regra de negócio não sabe onde é salva) e
+  concentra a decisão de "onde/como persistir" numa camada só. *(Isto revisa a
+  nota histórica abaixo de que "o mempool não sobrevive a restart": a estrutura
+  não persiste sozinha, mas o node a persiste — a rede não depende disso, só
+  ganha um boot mais quente.)*
+- **Índice `spends` (outpoint→txid) além do `pool`.** Rejeitar double-spend entre
+  transações *pendentes* exige responder "este output já foi reservado?" em O(1).
+  Varrer todas as txs do pool a cada admissão seria O(n) por input; o índice
+  inverso paga um pouco de memória por uma admissão barata mesmo com o pool
+  cheio.
+- **Sem encadeamento de transações não-confirmadas.** Uma tx que gasta o output
+  de outra ainda no mempool é rejeitada nesta versão. Aceitá-la exigiria validar
+  cadeias de dependência e removê-las em cascata quando a base cai — uma máquina
+  de estados bem mais complexa. Cortamos esse caso: quem quer gastar espera a
+  confirmação. Simplicidade escolhida deliberadamente, registrada como limite.
+- **Sem Replace-by-Fee (RBF).** Uma vez no pool, uma tx não é substituível por
+  outra de taxa maior sobre os mesmos inputs. RBF abre questões de política e de
+  UX (a tx "sumiu e virou outra") que não valem a pena para o node doméstico.
+- **Sem mínimo de taxa por política (qualquer taxa ≥ 0 entra).** O corte real é o
+  *evict da menor fee rate quando o pool enche* — o mercado decide, não uma
+  constante arbitrária. Um piso fixo envelheceria mal (o valor "certo" muda com o
+  uso); deixar o limite de tamanho fazer a triagem é auto-regulável.
+- **Ordenação por fee rate (taxa/byte), não por taxa absoluta.** O recurso escasso
+  é *espaço no bloco* (bytes), não a taxa em si. Uma tx grande com taxa alta pode
+  render menos por byte que várias pequenas; ordenar por taxa/byte maximiza o que
+  o minerador embolsa dentro do orçamento de `MaxBlockSize`.
+- **`Readd` no reorg passa pela validação completa de `Add`.** As txs
+  desconectadas de um ramo abandonado não voltam ao pool "na fé": o novo ramo
+  pode ter gasto os mesmos inputs. Revalidar na reinserção é o que impede o
+  mempool de ressuscitar uma tx que o consenso já invalidou.
+
 ## Objetivo
 
 Manter o conjunto de transações válidas ainda não confirmadas, protegido

@@ -1,5 +1,22 @@
 # Spec: health
 
+## Decisões & porquês (regra e arquitetura)
+
+- **Sem `model.go`/`service.go` — o handler fala direto com `*gorm.DB`.** Health
+  é uma checagem de *infraestrutura*, não um domínio de negócio: não tem estado,
+  regra nem tabela. Forçar a estrutura model/service/handler aqui criaria camadas
+  vazias só para satisfazer um padrão. É a exceção explícita do CLAUDE.md,
+  aplicada onde o custo do padrão não compra nada.
+- **Banco indisponível retorna `503`, nunca `500`.** Um health check é lido por
+  máquina (load balancer, monitor); "banco fora" é um *estado esperado* que o
+  monitor precisa distinguir de "código quebrou". `503` (serviço indisponível) é
+  a resposta semântica que faz o balanceador tirar a instância da rotação; `500`
+  confundiria uma coisa com a outra.
+- **Endpoint público, sem autenticação.** Health checks de infra rodam antes de
+  qualquer credencial; exigir auth aqui quebraria justamente quem precisa
+  consultá-lo. Como só devolve up/down (nenhum dado sensível), o custo de
+  expô-lo é nulo.
+
 ## Objetivo
 
 Expor um endpoint de infraestrutura para checar se a API está de pé e se a

@@ -1,5 +1,25 @@
 # Spec: docs (Swagger/OpenAPI)
 
+## Decisões & porquês (regra e arquitetura)
+
+- **Doc gerada de anotações no próprio handler, não escrita à mão.** Um arquivo
+  OpenAPI mantido à parte diverge do código no primeiro PR que ninguém lembra de
+  atualizar. Anotar cada handler (`@Summary`/`@Router`/...) mantém a fonte da
+  verdade *ao lado* da rota — quem muda a rota vê a anotação. É por isso que a
+  convenção (todo endpoint anotado + `swag init` antes do PR) está no CLAUDE.md.
+- **`docs/` gerado é comitado; `swag` é tool dependency do `go.mod`.** Comitar o
+  pacote gerado evita exigir que todo dev instale o `swag` globalmente
+  (versões divergentes gerariam docs diferentes) e mantém o build reprodutível —
+  roda via `go tool swag`. As flags `--parseDependency --parseInternal` são
+  necessárias porque `User` embute `gorm.Model`, tipo de uma dependência externa.
+- **Sem `service.go` — só `routes.go` montando handler de terceiros.** Mesma
+  exceção de infra do `health`: `docs` não é domínio de negócio, só registra o
+  `ginSwagger.WrapHandler`. Nada a testar em unidade além do wiring.
+- **Sem auth na UI, sem validação automática doc-vs-rota.** É um base project de
+  dev: proteger a Swagger UI ou construir um teste que compara `@Router` com a
+  rota real seria complexidade que o escopo não pede. A divergência é pega em
+  revisão de PR — decisão consciente de deixar barato.
+
 ## Objetivo
 
 Gerar documentação OpenAPI/Swagger a partir de anotações nos handlers de cada

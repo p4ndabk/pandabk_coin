@@ -29,6 +29,59 @@ A **merkle root** resume todas as transações do bloco num único hash de 32
 bytes dentro do header: qualquer transação alterada muda a raiz, que muda o
 hash do header, que quebra a cadeia.
 
+## Decisões & porquês (regra e arquitetura)
+
+Este pacote define o **formato de bytes canônico** do consenso: dois nós só
+concordam sobre um bloco se serializarem os mesmos campos exatamente nos mesmos
+bytes. Toda decisão aqui protege esse determinismo.
+
+- **Serialização hand-rolled big-endian, não gob/JSON/protobuf.** `encoding/gob`
+  e `encoding/json` não garantem ordem estável de campos nem representação única
+  de um número — o mesmo bloco poderia gerar bytes diferentes, logo hashes
+  diferentes, logo IDs de bloco diferentes. Escrevemos o encoder à mão para que
+  `struct → bytes` seja uma função total e determinística. Big-endian ("network
+  byte order") porque é a convenção de protocolos de rede e não depende do
+  endianness da CPU.
+- **ID do bloco = SHA-256d(header) ≠ hash de PoW.** O header tem 96 bytes fixos;
+  hashear só ele (e não o bloco inteiro) torna o encadeamento barato. Usar
+  SHA-256d (duplo) para o ID e reservar o Argon2 caro só para a checagem de PoW
+  (em `pow`) evita recomputar o hash memory-hard toda vez que a chain precisa
+  referenciar um bloco. São dois hashes com dois papéis, deliberadamente
+  separados (padrão do Monero).
+- **Header de 96 bytes de tamanho fixo.** Campos de largura fixa (sem varint no
+  header) tornam o parsing e o hashing triviais e à prova de ambiguidade de
+  comprimento. O custo (alguns bytes a mais que o mínimo teórico) é irrelevante
+  frente à simplicidade de um formato sem surpresas.
+- **Modelo UTXO, não contas com saldo.** UTXO permite validar transações sem um
+  estado global mutável de "saldo por conta": cada input aponta para um output
+  específico e ou ele existe e não foi gasto, ou a tx é inválida. É também o
+  modelo do Bitcoin, o que mantém o projeto didático alinhado ao material de
+  referência que o usuário vai encontrar por aí.
+- **Pay-to-pubkey-hash *estrutural*, sem Bitcoin Script.** Não há máquina de
+  scripts: o output guarda um `PubKeyHash` e o gasto exige assinatura da chave
+  correspondente, ponto. Um interpretador de script seria uma superfície de bugs
+  e de consenso enorme para um recurso que o projeto não precisa. Escolhemos o
+  caso de uso mais comum do Bitcoin e o embutimos direto na regra.
+- **Endereço = SHA-256 truncado a 20 bytes, sem RIPEMD-160.** O Bitcoin usa
+  RIPEMD-160 por razões históricas; é um algoritmo pouco usado e depreciado em
+  bibliotecas modernas. SHA-256 truncado dá 20 bytes de resistência prática para
+  o nosso caso, com uma primitiva que já está na stdlib e é auditada.
+- **Base58Check hand-rolled com versão `0x37`.** Base58 evita caracteres
+  ambíguos (0/O, l/1); o byte de versão `0x37` faz todo endereço começar com `P`
+  (identidade visual da moeda) e o checksum de 4 bytes (SHA-256d) pega erro de
+  digitação **antes** de qualquer moeda ser enviada para um endereço inexistente
+  — um pagamento perdido é irreversível, então a validação barata no cliente vale
+  muito.
+- **Coinbase carrega a altura na PubKey (estilo BIP34).** Duas coinbases da mesma
+  recompensa para o mesmo endereço teriam o mesmo TxID e colidiriam no índice de
+  UTXO. Embutir a altura (mais um extranonce) garante TxID único por bloco sem
+  precisar de um campo extra.
+- **SIGHASH_ALL simplificado, um só modo de assinatura.** O Bitcoin tem vários
+  modos de sighash; nós assinamos sempre a transação inteira (todos os inputs e
+  outputs). Menos modos = menos regras de consenso = menos como errar. ECDSA
+  P-256 via `crypto/ecdsa` da stdlib pelo mesmo motivo do SHA-256: primitiva
+  auditada, não hand-rolled.
+
 ## Objetivo
 
 Definir os tipos fundamentais (bloco, transação, endereço) e sua serialização

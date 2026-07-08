@@ -1,5 +1,38 @@
 # Spec: user
 
+## Decisões & porquês (regra e arquitetura)
+
+Este é o domínio de referência do skeleton — a forma que todo novo domínio deve
+copiar. As decisões são sobre segurança de credencial e sobre não vazar
+informação por acidente.
+
+- **Senha em bcrypt, nunca em claro; `json:"-"` no campo.** bcrypt tem custo
+  ajustável (resiste a força bruta) e salt embutido. Marcar o campo como
+  `json:"-"` garante que o hash nunca sai numa resposta, mesmo que alguém
+  serialize o `User` inteiro por engano. Duas camadas para o mesmo erro caro.
+- **`Authenticate` devolve *um* erro genérico para email inexistente, senha
+  errada e conta inativa.** Distinguir "email não existe" de "senha errada"
+  entrega a um atacante um oráculo de enumeração de contas. `ErrInvalidCredentials`
+  único fecha esse vazamento — a UX levemente pior é o preço certo pela segurança.
+- **Unique constraint traduzida para `ErrEmailTaken` no service, `409` no
+  handler.** Deixar o erro cru do banco subir viraria um `500` genérico (e poderia
+  vazar detalhe de driver/SQL). Traduzir para um sentinel no service e mapear para
+  `apierror.Conflict` no handler mantém a fronteira do CLAUDE.md: service
+  HTTP-agnóstico, handler dono do status. Exige `TranslateError: true` no GORM.
+- **`Update` só re-hasheia a senha se vier uma nova.** Um PUT que não menciona
+  senha não deve apagá-la. Checar string não-vazia antes de re-hashear preserva o
+  hash existente — evita o bug clássico de "editei o nome e perdi a senha".
+- **`Active` sem `gorm:"default:true"`, default aplicado no handler.** Documentado
+  inline por causa de um bug real: `bool + default:true` faz o GORM omitir `false`
+  no insert e usar o default do banco, tornando impossível criar um usuário
+  inativo. Aplicar o default no handler quando `active` não vem no request é o que
+  torna os dois estados representáveis.
+- **JWT HS256 stateless, 24h, sem refresh/revogação.** Um token assinado que o
+  servidor valida sem consultar o banco é o mínimo viável de auth. Refresh,
+  revogação e roles são features de spec própria quando o projeto precisar —
+  adicioná-las agora seria infra especulativa. `GET /api/me` existe como o
+  exemplo de referência de rota protegida a copiar.
+
 ## Objetivo
 
 CRUD de usuários com autenticação básica por email/senha, servindo de base

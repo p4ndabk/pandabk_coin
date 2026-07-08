@@ -31,6 +31,61 @@ evita recomputar Argon2 toda vez que a chain precisa referenciar um bloco.
 4×/¼×. Rede cresceu → blocos rápidos demais → alvo cai → mais difícil → volta
 a ~60s/bloco. O ritmo de emissão fica imune ao tamanho da rede.
 
+## Decisões & porquês (regra e arquitetura)
+
+O PoW é a fonte da segurança da rede e da nossa aposta de produto ("um node em
+cada casa"). Cada escolha aqui é sobre *quem consegue minerar* e *quão barato é
+verificar*.
+
+- **Argon2id memory-hard em vez de SHA-256.** É a decisão central do projeto.
+  SHA-256 é puro cálculo: um ASIC é ~1.000.000× mais eficiente que uma CPU e a
+  mineração centraliza em quem tem capital, contradizendo o princípio doméstico.
+  Argon2id força preencher e acessar aleatoriamente 64 MiB de RAM por hash, com
+  dependência entre acessos (sem atalho paralelo); o gargalo vira banda de
+  memória (commodity) e a vantagem de hardware dedicado cai para ~2–5×, que não
+  paga o investimento. Um notebook compete de igual.
+- **Variante `id` (não `i` nem `d`).** Argon2i resiste a ataques de canal
+  lateral mas é mais fraco contra GPU; Argon2d é o oposto. Argon2id é o híbrido
+  recomendado pela RFC 9106 para uso geral — é o default seguro quando não há
+  razão para escolher um extremo.
+- **Salt fixo (`pandabk/pow/v1`), não por-bloco.** No Argon2 como *password
+  hashing* o salt é aleatório por senha. Aqui ele serve de **separador de
+  domínio**: fixá-lo faz o PoW ser uma função pura do header (todo nó recalcula
+  e confere o mesmo valor) e amarra o hash a *esta* rede — trocar o salt geraria
+  hashes incompatíveis, ou seja, outra rede. O `v1` deixa espaço para uma
+  migração versionada no futuro.
+- **Dois hashes separados: SHA-256d para ID, Argon2id só para PoW.** Detalhado em
+  `core`, mas a consequência mora aqui: a chain referencia blocos pelo ID barato
+  e só paga o Argon2 caro na validação de PoW de um bloco. Se o ID fosse o hash
+  de PoW, cada lookup de bloco custaria 64 MiB de RAM.
+- **Fork choice por trabalho acumulado (`BlockWork`), não por altura.** A cadeia
+  válida é a de maior trabalho somado, não a mais comprida. Altura é falsificável
+  barato (encadear muitos blocos fáceis); trabalho não — reflete o custo real de
+  energia/memória gasto. É o mesmo critério do Bitcoin e o que impede um atacante
+  de "vencer" só produzindo blocos rápidos de baixa dificuldade.
+- **nBits no formato compacto do Bitcoin.** Um target é um número de 256 bits;
+  guardá-lo cru no header gastaria 32 bytes. O formato compacto (1 byte de
+  expoente + 3 de mantissa) cabe em 4 bytes com precisão suficiente para
+  dificuldade, e é o formato que qualquer material de referência de Bitcoin
+  descreve.
+- **Retarget estilo Bitcoin com clamp [¼×, 4×], não LWMA.** O ajuste proporcional
+  ao tempo real da janela é simples de entender e auditar. O clamp impede que um
+  timestamp manipulado ou uma variação brusca de hashrate faça a dificuldade
+  saltar de forma catastrófica num único retarget. LWMA (média móvel ponderada,
+  mais suave) fica registrado como evolução futura — não vale a complexidade
+  extra nesta fase.
+- **Guardas contra divisão por zero/negativo no retarget.** Janela curta +
+  timestamps em segundos podem dar `actual = 0` na divisão inteira, o que zeraria
+  o target (dificuldade impossível). Por isso `minActual` tem piso em 1 e
+  timestamps invertidos são clampados em vez de propagados. Estabilidade
+  numérica é regra de consenso: um nó que dividisse por zero e outro que
+  clampasse divergiriam.
+- **PoW não é verificado em headers isolados durante o IBD.** Argon2 é caro
+  demais para rodar por header numa sincronização inicial; a checagem completa
+  acontece ao validar o bloco inteiro. Decisão de desempenho registrada no
+  PLAN.md — troca uma verificação redundante por uma sincronização viável no
+  node doméstico.
+
 ## Objetivo
 
 Implementar a checagem de proof of work memory-hard, a aritmética de

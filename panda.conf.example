@@ -22,6 +22,14 @@ listen=:9551
 # peers propaga o resto); `peer=` é atalho para um único
 #peers=192.168.1.10:9551
 
+# proxy SOCKS5 para TODA conexão de saída — aponte para o Tor local
+# (127.0.0.1:9050) para discar peers .onion sem expor seu IP; vazio = direto
+#proxy=127.0.0.1:9050
+
+# endereço anunciado aos peers — use com um hidden service do Tor, para
+# divulgar o .onion em vez do 127.0.0.1 local (veja a seção Tor da doc)
+#advertise=seuendereco.onion:9551
+
 # RPC local dos comandos info/balance/send (obrigatoriamente loopback)
 #rpc=127.0.0.1:8555
 

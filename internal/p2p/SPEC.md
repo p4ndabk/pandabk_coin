@@ -27,6 +27,61 @@ Mecânicas centrais:
 - **Peer exchange**: peers trocam endereços de outros peers (`getaddr`/`addr`),
   então basta conhecer um nó para descobrir a rede.
 
+## Decisões & porquês (regra e arquitetura)
+
+Este pacote é a superfície da rede — a única parte do node que fala com o mundo
+não-confiável. As decisões equilibram simplicidade, proteção contra abuso e o
+requisito de que o node doméstico atrás de NAT seja cidadão pleno.
+
+- **TCP puro + stdlib, sem libp2p.** libp2p traria multiplexação, criptografia e
+  descoberta prontas — e um universo de dependências, conceitos e superfície de
+  bugs. Para o volume e o propósito didático do projeto, um framing próprio (4
+  bytes de tamanho + JSON) sobre `net.Conn` é auditável de ponta a ponta e cabe
+  na cabeça de quem está aprendendo. Cada mensagem é legível; não há mágica.
+- **Envelope JSON com blocos/txs em base64, não um binário próprio de fio.** O
+  consenso já tem serialização canônica em bytes (em `core`); o *transporte* não
+  precisa ser compacto, precisa ser inspecionável. JSON deixa depurar a rede com
+  um `tcpdump` legível; os bytes que importam (bloco/tx) viajam canônicos dentro
+  dele. Um tipo de mensagem desconhecido é ignorado — binários antigos seguem
+  compatíveis quando novos tipos surgem.
+- **Frame limitado a 1 MiB, rejeitado sem alocar.** O tamanho vem nos primeiros 4
+  bytes; um peer malicioso poderia anunciar 4 GiB e nos fazer alocar até
+  estourar. Validar o tamanho *antes* de alocar o buffer fecha esse DoS. 1 MiB é
+  folgado para qualquer mensagem legítima (bloco máx = 256 KiB).
+- **Nada processado antes do handshake completo.** `version`+`verack` primeiro, e
+  o `version` carrega o hash do gênesis. Rejeitar cedo quem está em outra rede (ou
+  fala outro protocolo) evita gastar CPU/estado com uma conexão que nunca seria
+  útil — e é onde a separação de redes por gênesis é aplicada.
+- **Fork choice do sync espelha o da chain: sincroniza por `cum_work`, não por
+  altura.** O node só entra em IBD se o trabalho acumulado do peer supera o nosso.
+  Usar altura deixaria um peer com uma cadeia longa e fraca nos arrastar para o
+  ramo errado; trabalho é o mesmo critério que a chain usa para decidir a ponta,
+  então rede e disco concordam.
+- **Headers-first com locator exponencial.** Baixar 96 bytes de header antes dos
+  corpos deixa validar encadeamento e bits barato, e o *locator* (hashes
+  espaçados exponencialmente a partir da ponta) acha o ponto em comum com o peer
+  em O(log n) mensagens em vez de mandar a cadeia inteira. Argon2 (caro) só roda
+  no bloco completo — coerente com a decisão registrada em `pow`.
+- **Outbound-only é cidadão pleno (máx 8 outbound).** O design *não pode* assumir
+  que peers são alcançáveis de fora, senão excluiria todo mundo atrás de
+  NAT/CGCNAT — a maioria dos nodes domésticos, o público-alvo do projeto. Um node
+  que só disca para fora valida, minera e propaga por essas conexões; aceitar
+  entrada (port forward) é opcional e só aumenta a capilaridade. Por isso o
+  address book só anuncia `listen_addr` de quem *declarou* aceitar entrada — não
+  poluímos a rede com endereços que ninguém alcança.
+- **Proxy SOCKS5 + `Advertise` separado para Tor.** Toda saída pode passar por um
+  SOCKS5 (o Tor local, que resolve `.onion`), e o endereço anunciado no handshake
+  é desacoplado do endereço de bind. Assim um hidden service divulga seu `.onion`
+  em vez do `127.0.0.1` local, e o transporte sai cifrado de ponta a ponta pelo
+  próprio onion — por isso não implementamos criptografia de transporte própria
+  nesta fase.
+- **Cap de conexões, ping/pong com drop, dedup de `getdata`, sem ban score
+  (ainda).** Limites duros (8 outbound, 32 endereços por `addr`, drop após 2 pings
+  sem resposta, um único `getdata` por bloco anunciado por vários peers) protegem
+  memória e banda do node caseiro por construção. Ban score/misbehavior é
+  evolução futura declarada — o mínimo viável fecha os abusos óbvios sem a
+  complexidade de um sistema de reputação.
+
 ## Objetivo
 
 Conectar nós entre si, propagar blocos e transações, e sincronizar a cadeia de
@@ -45,7 +100,10 @@ Entra:
   (drop após 2 falhas), detecção de auto-conexão por nonce
 - `server.go` — listener TCP, dial dos seeds (`--peers` primeiro), peer
   manager (máx 8 outbound), address book persistido no bucket `meta` da chain,
-  gossip de `addr` (até 32 endereços)
+  gossip de `addr` (até 32 endereços); toda saída pode passar por um proxy
+  SOCKS5 (`Config.Proxy` — o Tor, com o proxy resolvendo `.onion`), e
+  `Config.Advertise` troca o endereço anunciado no handshake (um hidden
+  service divulga o `.onion`, não o `127.0.0.1` local)
 - `sync.go` — IBD: se cumWork do peer > nosso → `getheaders` com locator,
   receber até 2.000 headers (validar encadeamento + bits; Argon2 só no bloco
   completo), pedir corpos via `getdata` em janelas de 16, conectar em ordem;
@@ -62,7 +120,8 @@ aceitar entrada.
 Fica de fora:
 - NAT traversal automático / UPnP (roadmap prioritário pós-v1 — outbound-only
   já cobre o node doméstico; traversal só melhora a topologia)
-- Criptografia de transporte (rede de dev; anotar como evolução futura)
+- Criptografia de transporte (rede de dev; anotar como evolução futura —
+  via Tor o transporte já sai cifrado de ponta a ponta pelo próprio onion)
 
 ## Modelo de dados (mensagem version)
 

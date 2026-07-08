@@ -20,25 +20,33 @@ import (
 // confForm são os campos compartilhados entre a tela de primeira vez e a
 // aba Ajustes — mesma edição, dois momentos.
 type confForm struct {
-	peers   *widget.Entry
-	listen  *widget.Entry
-	rpc     *widget.Entry
-	datadir *widget.Entry
-	mine    *widget.Check
-	miners  *widget.Entry
+	peers     *widget.Entry
+	proxy     *widget.Entry
+	advertise *widget.Entry
+	listen    *widget.Entry
+	rpc       *widget.Entry
+	datadir   *widget.Entry
+	mine      *widget.Check
+	miners    *widget.Entry
 }
 
 func newConfForm(v confValues) *confForm {
 	f := &confForm{
-		peers:   widget.NewEntry(),
-		listen:  widget.NewEntry(),
-		rpc:     widget.NewEntry(),
-		datadir: widget.NewEntry(),
-		mine:    widget.NewCheck("Minerar (recomendado — 1 core e ~64 MiB)", nil),
-		miners:  widget.NewEntry(),
+		peers:     widget.NewEntry(),
+		proxy:     widget.NewEntry(),
+		advertise: widget.NewEntry(),
+		listen:    widget.NewEntry(),
+		rpc:       widget.NewEntry(),
+		datadir:   widget.NewEntry(),
+		mine:      widget.NewCheck("Minerar (recomendado — 1 core e ~64 MiB)", nil),
+		miners:    widget.NewEntry(),
 	}
 	f.peers.SetPlaceHolder("IP:porta de um node amigo — vazio = iniciar sua própria rede")
 	f.peers.SetText(v.Peers)
+	f.proxy.SetPlaceHolder("127.0.0.1:9050 do Tor — permite peers .onion; vazio = direto")
+	f.proxy.SetText(v.Proxy)
+	f.advertise.SetPlaceHolder("seuendereco.onion:9551 — só se você tem um hidden service; vazio = usa a porta P2P")
+	f.advertise.SetText(v.Advertise)
 	f.listen.SetText(v.Listen)
 	f.rpc.SetText(v.RPC)
 	f.datadir.SetText(v.DataDir)
@@ -53,12 +61,14 @@ func (f *confForm) values() (confValues, error) {
 		return confValues{}, fmt.Errorf("miners precisa ser um número (ex.: 1)")
 	}
 	v := confValues{
-		Peers:   strings.TrimSpace(f.peers.Text),
-		Listen:  strings.TrimSpace(f.listen.Text),
-		RPC:     strings.TrimSpace(f.rpc.Text),
-		DataDir: strings.TrimSpace(f.datadir.Text),
-		Mine:    f.mine.Checked,
-		Miners:  miners,
+		Peers:     strings.TrimSpace(f.peers.Text),
+		Proxy:     strings.TrimSpace(f.proxy.Text),
+		Advertise: strings.TrimSpace(f.advertise.Text),
+		Listen:    strings.TrimSpace(f.listen.Text),
+		RPC:       strings.TrimSpace(f.rpc.Text),
+		DataDir:   strings.TrimSpace(f.datadir.Text),
+		Mine:      f.mine.Checked,
+		Miners:    miners,
 	}
 	return v, v.validate()
 }
@@ -70,6 +80,8 @@ func (f *confForm) fields() fyne.CanvasObject {
 		f.mine,
 		labeled("WORKERS DE MINERAÇÃO", f.miners),
 		widget.NewSeparator(),
+		labeled("PROXY SOCKS5 — TOR (VAZIO = CONEXÃO DIRETA)", f.proxy),
+		labeled("SEU ENDEREÇO .ONION (SÓ SE VOCÊ HOSPEDA UM HIDDEN SERVICE)", f.advertise),
 		labeled("PORTA P2P (VAZIO = SÓ SAÍDA, FUNCIONA ATRÁS DE NAT)", f.listen),
 		labeled("RPC LOCAL", f.rpc),
 		labeled("PASTA DE DADOS (CHAIN E WALLET)", f.datadir),

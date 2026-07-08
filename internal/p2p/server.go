@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	xproxy "golang.org/x/net/proxy"
+
 	"pandabk_coin/internal/chain"
 	"pandabk_coin/internal/core"
 	"pandabk_coin/internal/mempool"
@@ -23,6 +25,8 @@ import (
 type Config struct {
 	Listen         string        // ex.: ":9551"; "" = só outbound
 	Seeds          []string      // peers iniciais (--peers)
+	Proxy          string        // SOCKS5 para TODA saída (ex.: 127.0.0.1:9050 do Tor); "" = direto
+	Advertise      string        // endereço anunciado no handshake (ex.: xyz.onion:9551); "" = o do listener
 	MaxPeers       int           // default 8
 	PingInterval   time.Duration // default 2 min (drop após 2 pings sem pong)
 	RedialInterval time.Duration // default 15s (manutenção de conexões)
@@ -47,6 +51,7 @@ type Server struct {
 	wg        sync.WaitGroup
 	ln        net.Listener
 	advertise string // endereço anunciado no handshake ("" se outbound-only)
+	proxyDial xproxy.ContextDialer // != nil quando cfg.Proxy está setado
 
 	mu        sync.Mutex
 	peers     map[string]*peerConn
@@ -89,6 +94,17 @@ func NewServer(cfg Config, c *chain.Chain, mp *mempool.Mempool, p params.Params)
 
 func (s *Server) Start() error {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
+	if s.cfg.Proxy != "" {
+		d, err := xproxy.SOCKS5("tcp", s.cfg.Proxy, nil, &net.Dialer{Timeout: 10 * time.Second})
+		if err != nil {
+			return fmt.Errorf("p2p: proxy SOCKS5 %q: %w", s.cfg.Proxy, err)
+		}
+		cd, ok := d.(xproxy.ContextDialer)
+		if !ok {
+			return fmt.Errorf("p2p: proxy SOCKS5 %q não suporta DialContext", s.cfg.Proxy)
+		}
+		s.proxyDial = cd
+	}
 	if s.cfg.Listen != "" {
 		ln, err := net.Listen("tcp", s.cfg.Listen)
 		if err != nil {
@@ -98,6 +114,9 @@ func (s *Server) Start() error {
 		s.advertise = ln.Addr().String()
 		s.wg.Add(1)
 		go s.acceptLoop()
+	}
+	if s.cfg.Advertise != "" {
+		s.advertise = s.cfg.Advertise // hidden service anuncia o .onion, não o 127.0.0.1 local
 	}
 	s.wg.Add(2)
 	go s.maintainLoop()
@@ -209,7 +228,7 @@ func (s *Server) dialMissing() {
 		s.wg.Add(1)
 		go func(addr string) {
 			defer s.wg.Done()
-			conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
+			conn, err := s.dial(addr)
 			if err != nil {
 				s.mu.Lock()
 				delete(s.dialing, addr) // tenta de novo no próximo tick
@@ -219,6 +238,19 @@ func (s *Server) dialMissing() {
 			s.setupPeer(conn, addr, true)
 		}(target)
 	}
+}
+
+// dial abre TODA conexão de saída: direta, ou via SOCKS5 quando -proxy está
+// configurado — aí é o proxy quem resolve o destino, então `.onion` funciona
+// e nenhum DNS/TCP vaza fora do Tor. O timeout maior cobre a construção do
+// circuito Tor, que é bem mais lenta que um dial direto.
+func (s *Server) dial(addr string) (net.Conn, error) {
+	if s.proxyDial == nil {
+		return net.DialTimeout("tcp", addr, 5*time.Second)
+	}
+	ctx, cancel := context.WithTimeout(s.ctx, 45*time.Second)
+	defer cancel()
+	return s.proxyDial.DialContext(ctx, "tcp", addr)
 }
 
 // setupPeer faz o handshake, registra o peer e roda o read loop até a

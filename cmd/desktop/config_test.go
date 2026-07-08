@@ -11,12 +11,14 @@ import (
 func TestSaveConfRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "panda.conf")
 	v := confValues{
-		Peers:   "192.168.1.10:9551,10.0.0.2:9551",
-		Listen:  ":9551",
-		RPC:     "127.0.0.1:8555",
-		DataDir: "/tmp/panda-teste",
-		Mine:    true,
-		Miners:  2,
+		Peers:     "192.168.1.10:9551,10.0.0.2:9551",
+		Proxy:     "127.0.0.1:9050",
+		Advertise: "pandaxyz.onion:9551",
+		Listen:    ":9551",
+		RPC:       "127.0.0.1:8555",
+		DataDir:   "/tmp/panda-teste",
+		Mine:      true,
+		Miners:    2,
 	}
 	if err := saveConf(path, v); err != nil {
 		t.Fatalf("saveConf: %v", err)
@@ -30,7 +32,7 @@ func TestSaveConfRoundTrip(t *testing.T) {
 	if len(cfg.Peers) != 2 || cfg.Peers[0] != "192.168.1.10:9551" {
 		t.Fatalf("peers = %v", cfg.Peers)
 	}
-	if cfg.Listen != ":9551" || cfg.RPC != "127.0.0.1:8555" || cfg.DataDir != "/tmp/panda-teste" {
+	if cfg.Listen != ":9551" || cfg.RPC != "127.0.0.1:8555" || cfg.DataDir != "/tmp/panda-teste" || cfg.Proxy != "127.0.0.1:9050" || cfg.Advertise != "pandaxyz.onion:9551" {
 		t.Fatalf("campos = %+v", cfg)
 	}
 	if !cfg.Mine || cfg.Miners != 2 {

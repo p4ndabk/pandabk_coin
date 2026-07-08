@@ -5,9 +5,12 @@ import (
 	"crypto/ecdsa"
 	"encoding/binary"
 	"errors"
+	"io"
 	"math/big"
 	"net"
 	"path/filepath"
+	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -266,6 +269,136 @@ func TestTxGossip(t *testing.T) {
 	txid := tx.TxID()
 	waitFor(t, "tx aparecer no mempool de B", func() bool {
 		return b.mp.Has(txid)
+	})
+}
+
+// ── proxy SOCKS5 (o caminho do Tor) ─────────────────────────────────────────
+
+// startSocks5 sobe um proxy SOCKS5 mínimo (sem auth, só CONNECT) — o
+// suficiente para provar que o node disca através dele, como faria com o
+// Tor local em 127.0.0.1:9050. Devolve o endereço e o contador de túneis
+// abertos.
+func startSocks5(t *testing.T) (addr string, hits *atomic.Int32) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("socks5: %v", err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	hits = new(atomic.Int32)
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				dst, ok := socks5Handshake(c)
+				if !ok {
+					return
+				}
+				up, err := net.Dial("tcp", dst)
+				if err != nil {
+					return
+				}
+				defer up.Close()
+				hits.Add(1)
+				go func() { _, _ = io.Copy(up, c) }()
+				_, _ = io.Copy(c, up)
+			}(conn)
+		}
+	}()
+	return ln.Addr().String(), hits
+}
+
+// socks5Handshake fala o lado servidor do protocolo: greeting sem auth,
+// pedido CONNECT (IPv4 ou domínio — a forma como um .onion chega) e a
+// resposta de sucesso. Devolve o destino pedido.
+func socks5Handshake(c net.Conn) (dst string, ok bool) {
+	buf := make([]byte, 260)
+	if _, err := io.ReadFull(c, buf[:2]); err != nil || buf[0] != 5 {
+		return "", false
+	}
+	if _, err := io.ReadFull(c, buf[:int(buf[1])]); err != nil {
+		return "", false
+	}
+	if _, err := c.Write([]byte{5, 0}); err != nil { // sem autenticação
+		return "", false
+	}
+	if _, err := io.ReadFull(c, buf[:4]); err != nil || buf[1] != 1 {
+		return "", false
+	}
+	var host string
+	switch buf[3] {
+	case 1: // IPv4
+		if _, err := io.ReadFull(c, buf[:4]); err != nil {
+			return "", false
+		}
+		host = net.IP(buf[:4]).String()
+	case 3: // domínio — é o proxy quem resolve (o caso .onion)
+		if _, err := io.ReadFull(c, buf[:1]); err != nil {
+			return "", false
+		}
+		l := int(buf[0])
+		if _, err := io.ReadFull(c, buf[:l]); err != nil {
+			return "", false
+		}
+		host = string(buf[:l])
+	default:
+		return "", false
+	}
+	if _, err := io.ReadFull(c, buf[:2]); err != nil {
+		return "", false
+	}
+	port := binary.BigEndian.Uint16(buf[:2])
+	if _, err := c.Write([]byte{5, 0, 0, 1, 0, 0, 0, 0, 0, 0}); err != nil {
+		return "", false
+	}
+	return net.JoinHostPort(host, strconv.Itoa(int(port))), true
+}
+
+func TestSyncViaSocks5Proxy(t *testing.T) {
+	a := newTestNode(t)
+	a.mine(5)
+	a.start()
+
+	proxyAddr, hits := startSocks5(t)
+	// Seed por hostname (não IP) obriga o dialer a entregar o destino como
+	// domínio para o proxy resolver — exatamente o que acontece com .onion.
+	_, port, err := net.SplitHostPort(a.s.Addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := newTestNode(t, "localhost:"+port)
+	b.s.cfg.Proxy = proxyAddr
+	b.start()
+
+	wantTip, _, _ := a.c.Tip()
+	waitFor(t, "B sincronizar os 5 blocos de A através do proxy", func() bool {
+		tip, height, _ := b.c.Tip()
+		return height == 5 && tip.ID() == wantTip.ID()
+	})
+	if hits.Load() == 0 {
+		t.Fatal("a conexão não passou pelo proxy")
+	}
+}
+
+func TestAdvertiseGossipedToPeers(t *testing.T) {
+	a := newTestNode(t)
+	a.start()
+
+	b := newTestNode(t, a.s.Addr())
+	b.s.cfg.Advertise = "pandaxyz.onion:9551" // hidden service anuncia o onion, não o 127.0.0.1
+	b.start()
+	if got := b.s.Addr(); got != "pandaxyz.onion:9551" {
+		t.Fatalf("Addr() = %q, esperava o advertise", got)
+	}
+
+	waitFor(t, "A aprender o endereço anunciado por B", func() bool {
+		a.s.mu.Lock()
+		defer a.s.mu.Unlock()
+		return a.s.addrBook["pandaxyz.onion:9551"]
 	})
 }
 

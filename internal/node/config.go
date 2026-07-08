@@ -23,13 +23,15 @@ var DefaultProfile = "devnet"
 // Config do node. Flags primeiro, env NODE_* como fallback (mesmo padrão
 // getEnv de internal/config, sem tocá-lo).
 type Config struct {
-	DataDir string
-	Listen  string
-	RPC     string
-	Peers   []string
-	Mine    bool
-	Miners  int
-	Profile string
+	DataDir   string
+	Listen    string
+	RPC       string
+	Peers     []string
+	Proxy     string // SOCKS5 para conexões de saída (Tor); vazio = direto
+	Advertise string // endereço anunciado aos peers (.onion de um hidden service)
+	Mine      bool
+	Miners    int
+	Profile   string
 }
 
 func defaultDataDir() string {
@@ -87,6 +89,8 @@ func RegisterFlags(fs *flag.FlagSet) (*Config, *string) {
 	fs.BoolVar(&cfg.Mine, "mine", getEnvBool("NODE_MINE", true), "minerar (padrão LIGADO, 1 worker — todo node contribui; desligue com -mine=false)")
 	fs.IntVar(&cfg.Miners, "miners", getEnvInt("NODE_MINERS", 1), "workers de mineração (1 core e ~64 MiB cada)")
 	fs.StringVar(&cfg.Profile, "profile", getEnv("NODE_PROFILE", DefaultProfile), "perfil de consenso: devnet ou test")
+	fs.StringVar(&cfg.Proxy, "proxy", getEnv("NODE_PROXY", ""), "proxy SOCKS5 para TODA conexão de saída (ex.: 127.0.0.1:9050 do Tor — permite discar peers .onion; vazio = direto)")
+	fs.StringVar(&cfg.Advertise, "advertise", getEnv("NODE_ADVERTISE", ""), "endereço anunciado aos peers (ex.: seuendereco.onion:9551 de um hidden service; vazio = o do -listen)")
 	peersCSV := fs.String("peers", getEnv("NODE_PEERS", ""), "peers iniciais host:porta, separados por vírgula")
 	return cfg, peersCSV
 }

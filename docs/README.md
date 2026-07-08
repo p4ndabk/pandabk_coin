@@ -321,6 +321,8 @@ Com o arquivo no lugar, `./panda-node run` basta.
 | `-rpc` | `NODE_RPC` | `127.0.0.1:8555` | RPC local (recusa qualquer endereço fora de loopback) |
 | `-peers` | `NODE_PEERS` | — | nodes iniciais, `host:porta` separados por vírgula |
 | `-peer` | — | — | atalho para um único peer |
+| `-proxy` | `NODE_PROXY` | — | proxy SOCKS5 para **toda** conexão de saída (ex.: `127.0.0.1:9050` do Tor — permite discar peers `.onion`); vazio = direto |
+| `-advertise` | `NODE_ADVERTISE` | — | endereço anunciado aos peers (ex.: `seuendereco.onion:9551` de um hidden service); vazio = o do `-listen` |
 | `-mine` | `NODE_MINE` | `true` | mineração (desligue com `-mine=false`) |
 | `-miners` | `NODE_MINERS` | `1` | workers de mineração (1 core + ~64 MiB cada) |
 | `-profile` | `NODE_PROFILE` | `devnet` | perfil de consenso (`devnet` ou `test`) |
@@ -449,8 +451,10 @@ da potência de cada um — cada casa minerando um pouco é o que descentraliza.
 ## 9. Usando com Tor
 
 Tor esconde o IP do seu node (de quem conecta em você e de quem você
-conecta). O node PANDA fala TCP puro, então a integração é pela própria
-stack do Tor — sem mudar nada no binário.
+conecta). O node tem suporte nativo: `-proxy` roteia toda a saída pelo
+SOCKS5 do Tor (e é o Tor quem resolve os `.onion`), e `-advertise` faz um
+hidden service anunciar o `.onion` aos peers em vez do endereço local.
+Funciona igual em Linux, macOS e Windows — sem `torsocks`.
 
 ### 9.1 Instalar o Tor
 
@@ -481,34 +485,40 @@ sudo cat /var/lib/tor/panda-node/hostname
 ```
 
 Rode o node aceitando conexões **só do Tor local** (o mundo externo não vê
-a porta, só o onion):
+a porta, só o onion) e anunciando o `.onion` aos peers:
 
 ```sh
-./panda-node run -listen 127.0.0.1:9551
+./panda-node run -listen 127.0.0.1:9551 -advertise pandaxyzabc...def.onion:9551
 ```
 
 Compartilhe `pandaxyzabc...def.onion:9551` com os amigos — esse é o seu
-endereço na rede, sem expor seu IP nem abrir porta no roteador.
+endereço na rede, sem expor seu IP nem abrir porta no roteador. Sem o
+`-advertise`, o node anunciaria o `127.0.0.1:9551` local (inútil para os
+outros); com ele, o peer exchange espalha seu onion e outros nodes Tor
+conseguem te descobrir.
 
 ### 9.3 Conectar em peers .onion
 
-Quem disca para um `.onion` precisa rotear a saída pelo Tor. No Linux (e
-macOS com SIP relaxado), o `torsocks` faz isso sem tocar no binário:
+Quem disca para um `.onion` aponta o `-proxy` para o SOCKS5 do Tor local
+(porta 9050 por padrão) — o destino é resolvido pelo próprio Tor, nenhum
+DNS ou TCP vaza por fora:
 
 ```sh
-sudo apt install torsocks
-torsocks ./panda-node run -peers pandaxyzabc...def.onion:9551 -listen ""
+./panda-node run -proxy 127.0.0.1:9050 -peers pandaxyzabc...def.onion:9551 -listen ""
 ```
 
-> ⚠️ **Limitações honestas desta versão:**
-> - `torsocks` funciona muito bem no Linux (incluindo Raspberry Pi). No
->   macOS, o SIP costuma bloqueá-lo; no Windows não existe — nesses casos,
->   rode o node dentro do WSL/uma VM Linux, ou participe via Tor apenas
->   como *hidden service* (recebendo) enquanto disca IPs normais.
-> - Suporte nativo a SOCKS5 (flag `-proxy`, sem torsocks) está no roadmap.
-> - Latência via Tor é maior; o sync inicial demora mais. Para a rede de
->   amigos em LAN, Tor é opcional — ele brilha para nodes distantes que não
->   querem expor IP nem mexer em roteador.
+No `panda.conf` (e na aba Ajustes do desktop) são as chaves `proxy=` e
+`peers=`. Os dois lados podem combinar os papéis: receber como hidden
+service (9.2) **e** discar via `-proxy` — aí ninguém expõe IP.
+
+> ⚠️ **Ressalvas honestas:**
+> - Latência via Tor é maior e o circuito demora alguns segundos para
+>   nascer; o sync inicial é mais lento. Para a rede de amigos em LAN, Tor
+>   é opcional — ele brilha para nodes distantes que não querem expor IP
+>   nem mexer em roteador.
+> - Com `-proxy`, **toda** a saída passa pelo Tor (de propósito, para não
+>   vazar). Se o daemon `tor` não estiver rodando, o node fica sem
+>   conexões de saída — confira com `panda-node info` (peers > 0).
 
 ---
 

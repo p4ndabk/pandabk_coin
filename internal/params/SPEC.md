@@ -19,6 +19,56 @@ por bloco cai pela metade a cada N blocos, então a emissão total converge para
 um teto matemático (soma geométrica). No perfil devnet: 50 PANDA iniciais,
 halving a cada 1.000 blocos → supply máximo ~100.000 PANDA.
 
+## Decisões & porquês (regra e arquitetura)
+
+Cada escolha aqui é *regra de consenso*: mudá-la depois de a rede existir parte
+a rede. Por isso as razões ficam registradas — não são preferências, são
+contratos.
+
+- **Um único pacote, sem dependências, sem lógica de I/O.** `params` é a raiz da
+  árvore de dependências (`params ← core ← pow ← chain ← ...`). Se um parâmetro
+  de consenso vivesse em dois lugares, uma correção poderia atualizar um e não o
+  outro, e os nós divergiriam silenciosamente. Centralizar num pacote-folha
+  torna a divergência impossível por construção: existe uma só fonte da verdade.
+- **Perfis são funções que retornam `Params` por valor, não globais mutáveis.**
+  Um `var Mainnet = Params{...}` global poderia ser alterado em runtime (por
+  engano ou por teste), mudando o consenso do processo inteiro. Retornar cópia
+  garante que ninguém "ajusta a rede" sem passar por um novo build.
+- **`MaxSupply()` é derivado, nunca hardcoded.** O teto de emissão é a soma do
+  cronograma de halving calculada em laço. Um número fixo poderia contradizer
+  `BlockSubsidy` se um dos dois fosse editado; derivar garante que os dois
+  concordam por definição. O preço (um laço de dezenas de iterações) é pago uma
+  vez, fora do caminho quente.
+- **Subunidade inteira (1 PANDA = 1e8), nunca ponto flutuante.** Dinheiro em
+  `float64` acumula erro de arredondamento — dois nós somando as mesmas taxas em
+  ordem diferente chegariam a saldos diferentes. Todo valor é `uint64` de
+  subunidades; a conversão para PANDA é só apresentação.
+- **`Argon2Threads = 1`, sempre.** O paralelismo de mineração é do `miner`
+  (N workers), não de dentro de um hash. Se o número de threads entrasse no
+  cálculo do Argon2, o hash dependeria do hardware de quem minerou — e deixaria
+  de ser verificável por quem tem outra máquina. Manter 1 torna o PoW
+  determinístico entre máquinas.
+- **`MaxBlockSize = 256 KiB` é consenso, não configuração.** Um limite maior
+  aceleraria o crescimento do disco e expulsaria o node doméstico — o oposto do
+  princípio "um node em cada casa" (PLAN.md). Como é regra de consenso, um node
+  que aceitasse blocos maiores se separaria da rede; por isso vive aqui e não num
+  flag de runtime.
+- **Regras do `build.conf` derivam o gênesis em vez de conferi-lo
+  (`CustomBuild`).** Quando o desenvolvedor fixa spacing/halving/subsidy no
+  build, esses valores entram na mensagem do bloco 0 → mudam o hash do gênesis →
+  mudam o ID da rede no handshake. O efeito é intencional: um binário com
+  economia diferente forma uma rede *separada por construção* e nunca se mistura
+  por acidente com a rede oficial. É a trava que permite distribuir builds
+  experimentais sem poluir a rede principal.
+- **Perfil `test` parte da base devnet, mas sem os overrides de build.** Testes
+  precisam de regras estáveis e Argon2 barato (1 MiB) para rodar em
+  milissegundos; se herdassem o `build.conf` do desenvolvedor, o mesmo teste
+  passaria numa máquina e falharia noutra.
+- **`mainnet` é placeholder declarado.** Preferimos um perfil que existe e está
+  marcado como não-usar a valores "provisórios" que alguém trataria como
+  definitivos. A honestidade sobre o que ainda não foi calibrado é parte da
+  regra.
+
 ## Objetivo
 
 Centralizar todos os parâmetros de consenso e a política monetária em perfis

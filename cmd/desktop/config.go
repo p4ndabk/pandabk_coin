@@ -28,22 +28,26 @@ func desktopConfigPath(configFlag string) string {
 // confValues é o que a interface edita — o subconjunto do node.Config que
 // faz sentido mexer numa tela (o profile fica fora: é decisão de build).
 type confValues struct {
-	Peers   string // host:porta separados por vírgula
-	Listen  string
-	RPC     string
-	DataDir string
-	Mine    bool
-	Miners  int
+	Peers     string // host:porta separados por vírgula
+	Proxy     string // SOCKS5 (Tor) para conexões de saída; vazio = direto
+	Advertise string // endereço anunciado aos peers (ex.: seu .onion); vazio = o do Listen
+	Listen    string
+	RPC       string
+	DataDir   string
+	Mine      bool
+	Miners    int
 }
 
 func confFromConfig(cfg *node.Config) confValues {
 	return confValues{
-		Peers:   strings.Join(cfg.Peers, ","),
-		Listen:  cfg.Listen,
-		RPC:     cfg.RPC,
-		DataDir: cfg.DataDir,
-		Mine:    cfg.Mine,
-		Miners:  cfg.Miners,
+		Peers:     strings.Join(cfg.Peers, ","),
+		Proxy:     cfg.Proxy,
+		Advertise: cfg.Advertise,
+		Listen:    cfg.Listen,
+		RPC:       cfg.RPC,
+		DataDir:   cfg.DataDir,
+		Mine:      cfg.Mine,
+		Miners:    cfg.Miners,
 	}
 }
 
@@ -55,6 +59,8 @@ func (v confValues) apply(cfg node.Config) node.Config {
 			cfg.Peers = append(cfg.Peers, p)
 		}
 	}
+	cfg.Proxy = strings.TrimSpace(v.Proxy)
+	cfg.Advertise = strings.TrimSpace(v.Advertise)
 	cfg.Listen = strings.TrimSpace(v.Listen)
 	cfg.RPC = strings.TrimSpace(v.RPC)
 	cfg.DataDir = strings.TrimSpace(v.DataDir)
@@ -90,6 +96,12 @@ func saveConf(path string, v confValues) error {
 	b.WriteString("# Editar à mão também vale: chave=valor, as chaves são os nomes dos flags.\n")
 	if v.Peers != "" {
 		b.WriteString("peers=" + v.Peers + "\n")
+	}
+	if v.Proxy != "" {
+		b.WriteString("proxy=" + v.Proxy + "\n")
+	}
+	if v.Advertise != "" {
+		b.WriteString("advertise=" + v.Advertise + "\n")
 	}
 	b.WriteString("listen=" + v.Listen + "\n")
 	b.WriteString("rpc=" + v.RPC + "\n")

@@ -74,8 +74,10 @@ func New(cfg Config) (*Node, error) {
 	}
 
 	n.srv = p2p.NewServer(p2p.Config{
-		Listen: cfg.Listen,
-		Seeds:  cfg.Peers,
+		Listen:    cfg.Listen,
+		Seeds:     cfg.Peers,
+		Proxy:     cfg.Proxy,
+		Advertise: cfg.Advertise,
 		OnBlockAccepted: func(b *core.Block) {
 			n.logBlock("📥 bloco %d recebido da rede", b)
 			if n.miner != nil {
