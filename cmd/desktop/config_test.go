@@ -5,18 +5,18 @@ import (
 	"path/filepath"
 	"testing"
 
-	"pandabk_coin/internal/node"
+	"zhu/internal/node"
 )
 
 func TestSaveConfRoundTrip(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "panda.conf")
+	path := filepath.Join(t.TempDir(), "zhu.conf")
 	v := confValues{
 		Peers:     "192.168.1.10:9551,10.0.0.2:9551",
 		Proxy:     "127.0.0.1:9050",
-		Advertise: "pandaxyz.onion:9551",
+		Advertise: "zhuxyz.onion:9551",
 		Listen:    ":9551",
 		RPC:       "127.0.0.1:8555",
-		DataDir:   "/tmp/panda-teste",
+		DataDir:   "/tmp/zhu-teste",
 		Mine:      true,
 		Miners:    2,
 	}
@@ -27,12 +27,12 @@ func TestSaveConfRoundTrip(t *testing.T) {
 	// O arquivo salvo tem que ser legível pelo MESMO parser da CLI.
 	cfg, loaded := loadConfForTest(t, path)
 	if !loaded {
-		t.Fatal("panda.conf salvo não foi lido")
+		t.Fatal("zhu.conf salvo não foi lido")
 	}
 	if len(cfg.Peers) != 2 || cfg.Peers[0] != "192.168.1.10:9551" {
 		t.Fatalf("peers = %v", cfg.Peers)
 	}
-	if cfg.Listen != ":9551" || cfg.RPC != "127.0.0.1:8555" || cfg.DataDir != "/tmp/panda-teste" || cfg.Proxy != "127.0.0.1:9050" || cfg.Advertise != "pandaxyz.onion:9551" {
+	if cfg.Listen != ":9551" || cfg.RPC != "127.0.0.1:8555" || cfg.DataDir != "/tmp/zhu-teste" || cfg.Proxy != "127.0.0.1:9050" || cfg.Advertise != "zhuxyz.onion:9551" {
 		t.Fatalf("campos = %+v", cfg)
 	}
 	if !cfg.Mine || cfg.Miners != 2 {
@@ -41,7 +41,7 @@ func TestSaveConfRoundTrip(t *testing.T) {
 }
 
 func TestSaveConfRejectsInvalid(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "panda.conf")
+	path := filepath.Join(t.TempDir(), "zhu.conf")
 	for _, v := range []confValues{
 		{DataDir: "", RPC: "127.0.0.1:8555", Miners: 1},        // datadir vazio
 		{DataDir: "/tmp/x", RPC: "", Miners: 1},                // rpc vazio

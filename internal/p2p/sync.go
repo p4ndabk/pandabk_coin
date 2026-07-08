@@ -3,7 +3,7 @@ package p2p
 import (
 	"fmt"
 
-	"pandabk_coin/internal/core"
+	"zhu/internal/core"
 )
 
 // syncWindow é quantos corpos de bloco pedimos por vez no IBD: janela

@@ -1,6 +1,6 @@
 # Spec: core — bloco, transação (UTXO), merkle, endereço
 
-> Domínio do node PANDA (ver [PLAN.md](../../PLAN.md)). Depende apenas de
+> Domínio do node Zhu (ver [PLAN.md](../../PLAN.md)). Depende apenas de
 > `internal/params`. Tipos puros + serialização canônica + hashing — sem I/O,
 > sem estado.
 
@@ -23,7 +23,7 @@ diferença `inputs − outputs` é a **taxa**, que o minerador embolsa.
 
 A **coinbase** é a transação especial que abre cada bloco: não tem input real
 e cria as moedas novas da recompensa (subsídio + taxas). É assim que todo
-PANDA nasce.
+Zhu nasce.
 
 A **merkle root** resume todas as transações do bloco num único hash de 32
 bytes dentro do header: qualquer transação alterada muda a raiz, que muda o

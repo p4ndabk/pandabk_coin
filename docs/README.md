@@ -1,13 +1,13 @@
-# PANDA Coin — Documentação Oficial
+# Zhu — Documentação Oficial
 
-> A PANDA é uma criptomoeda proof-of-work **memory-hard (Argon2id)**: minerar
+> A Zhu é uma criptomoeda proof-of-work **memory-hard (Argon2id)**: minerar
 > usa 1 core e ~64 MiB de RAM, então um notebook usado ou um Raspberry Pi
 > competem de igual para igual — sem ASICs, sem fazendas. O princípio que
 > decide todo trade-off do projeto: **um node em cada casa**.
 >
 > ⚠️ **Isto é uma devnet.** A rede atual é de desenvolvimento: os parâmetros
 > econômicos ainda podem mudar e a chain pode ser reiniciada. Não trate
-> PANDA de devnet como dinheiro.
+> Zhu de devnet como dinheiro.
 
 ---
 
@@ -17,7 +17,7 @@
 2. [Sua wallet](#2-sua-wallet)
 3. [Seu primeiro node](#3-seu-primeiro-node)
 4. [Comandos do dia a dia](#4-comandos-do-dia-a-dia)
-5. [Configuração (panda.conf, flags e variáveis de ambiente)](#5-configuração)
+5. [Configuração (zhu.conf, flags e variáveis de ambiente)](#5-configuração)
 6. [Rede com vários nodes](#6-rede-com-vários-nodes)
 7. [Node sempre ligado (o servidor da turma)](#7-node-sempre-ligado)
 8. [Mineração](#8-mineração)
@@ -37,21 +37,21 @@ buildado, é copiar o arquivo para qualquer máquina e rodar.
 ### Requisitos (só para buildar)
 
 - [Go](https://go.dev/dl/) 1.25 ou superior
-- O código-fonte: `git clone <repo> && cd pandabk_coin`
+- O código-fonte: `git clone <repo> && cd zhu`
 
 ### Build na sua própria máquina
 
 **Linux / macOS:**
 
 ```sh
-CGO_ENABLED=0 go build -o bin/panda-node ./cmd/node
+CGO_ENABLED=0 go build -o bin/zhu ./cmd/node
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
 $env:CGO_ENABLED = "0"
-go build -o bin\panda-node.exe .\cmd\node
+go build -o bin\zhu.exe .\cmd\node
 ```
 
 ### Build para outras máquinas (scripts oficiais)
@@ -67,15 +67,15 @@ scripts/build-all.sh        # os três de uma vez
 ```
 
 Cada script monta um pacote completo em `dist/<so>/` e o compactado
-versionado para enviar (`dist/panda-<versão>-<so>.tar.gz`, `.zip` no
+versionado para enviar (`dist/zhu-<versão>-<so>.tar.gz`, `.zip` no
 Windows). Dentro do pacote:
 
 ```
 dist/macos/
-  panda-node-arm64      binários estáticos do node (o instalador escolhe)
-  panda-node-amd64
-  panda-desktop         o app com janela — entra quando o build roda no próprio SO*
-  panda.conf            configuração pronta para editar (linha peers=)
+  zhu-arm64      binários estáticos do node (o instalador escolhe)
+  zhu-amd64
+  zhu-desktop         o app com janela — entra quando o build roda no próprio SO*
+  zhu.conf            configuração pronta para editar (linha peers=)
   instalar.sh           escolhe o binário da CPU, dá permissão (e no macOS
                         remove a quarentena do Gatekeeper); Windows: instalar.bat
   LEIA-ME.txt           instruções de 3 passos para o amigo
@@ -84,7 +84,7 @@ dist/macos/
 ```
 
 O amigo recebe o compactado, extrai, roda o instalador, edita o
-`panda.conf` e sobe o node — três passos, descritos no LEIA-ME.
+`zhu.conf` e sobe o node — três passos, descritos no LEIA-ME.
 
 \* o desktop usa cgo e não cross-compila: `build-macos.sh` num Mac inclui o
 desktop de Mac; para o desktop de Linux/Windows, rode o script no próprio
@@ -92,18 +92,18 @@ sistema (o pacote avisa quando ele ficou de fora).
 
 Os scripts leem o **`build.conf`** (copie de `build.conf.example`), que é a
 configuração **do desenvolvedor que compila** — responsabilidade separada
-do `panda.conf`, que configura o **node em execução** (seção 5):
+do `zhu.conf`, que configura o **node em execução** (seção 5):
 
 ```ini
 # build.conf — só de quem compila
-name=panda-node      # nome-base dos binários
+name=zhu      # nome-base dos binários
 outdir=dist          # pasta de saída
-version=0.1.0-dev    # aparece em `panda-node version` e no banner do run
+version=0.1.0-dev    # aparece em `zhu version` e no banner do run
 
 # Regras de consenso DESTE build (opcionais — a economia da sua rede):
 #spacing=1m          # meta de tempo por bloco
 #halving=1000        # recompensa cai pela metade a cada N blocos
-#subsidy=50          # recompensa inicial em PANDA inteiros
+#subsidy=50          # recompensa inicial em ZHU inteiros
 #retarget=100        # reajusta a dificuldade a cada N blocos (menor = corrige mais rápido)
 #profile=devnet      # perfil default do binário
 ```
@@ -113,12 +113,12 @@ version=0.1.0-dev    # aparece em `panda-node version` e no banner do run
 > rede no handshake: o binário só conversa com outros compilados com as
 > **mesmas** regras (os demais são recusados com `gênesis diferente — outra
 > rede`). É proposital: builds diferentes não se contaminam. Distribua o
-> mesmo build para toda a turma; o banner do `run` e o `panda-node info`
+> mesmo build para toda a turma; o banner do `run` e o `zhu info`
 > mostram as regras embutidas.
 
-> 💡 No Linux/macOS, depois de copiar o binário: `chmod +x panda-node`.
+> 💡 No Linux/macOS, depois de copiar o binário: `chmod +x zhu`.
 > No macOS, se o Gatekeeper reclamar de binário baixado:
-> `xattr -d com.apple.quarantine ./panda-node`.
+> `xattr -d com.apple.quarantine ./zhu`.
 
 ---
 
@@ -128,7 +128,7 @@ Uma wallet **não guarda moedas — guarda uma chave secreta**. As moedas vivem
 na blockchain, trancadas para o seu endereço; a chave é o que destranca.
 
 ```sh
-./panda-node wallet new
+./zhu wallet new
 ```
 
 ```
@@ -147,7 +147,7 @@ As **12 palavras** (padrão BIP39, o mesmo do Bitcoin) são o seu backup
 humano: em qualquer máquina, elas reconstroem exatamente a mesma carteira —
 
 ```sh
-./panda-node wallet restore -file wallet.json palavra1 palavra2 ... palavra12
+./zhu wallet restore -file wallet.json palavra1 palavra2 ... palavra12
 ```
 
 Três regras que não têm exceção:
@@ -160,13 +160,13 @@ Três regras que não têm exceção:
 3. O **endereço** (começa com `P`) é público — é ele que você compartilha
    para receber.
 
-Para rever seu endereço depois: `./panda-node wallet address`. Esqueceu de
-anotar? Enquanto o arquivo existir, `./panda-node wallet words` reexibe as
+Para rever seu endereço depois: `./zhu wallet address`. Esqueceu de
+anotar? Enquanto o arquivo existir, `./zhu wallet words` reexibe as
 palavras (elas ficam gravadas dentro do próprio `wallet.json` — mais um
 motivo para o arquivo nunca sair do seu controle).
 
 > 💡 Você nem precisa deste passo para começar: o `node run` cria uma wallet
-> sozinho no primeiro uso (em `~/.panda/wallet.json`). Este comando existe
+> sozinho no primeiro uso (em `~/.zhu/wallet.json`). Este comando existe
 > para quem quer criar/guardar a chave antes, ou ter mais de uma.
 
 ---
@@ -174,25 +174,25 @@ motivo para o arquivo nunca sair do seu controle).
 ## 3. Seu primeiro node
 
 ```sh
-./panda-node run
+./zhu run
 ```
 
 Pronto. O que acontece:
 
 ```
-🐼 PANDA node no ar
+🐼 Zhu node no ar
 
    perfil       devnet
-   datadir      /Users/voce/.panda
+   datadir      /Users/voce/.zhu
    p2p          [::]:9551
    rpc          127.0.0.1:8555   (info/balance/send falam aqui)
    mineração    LIGADA — 1 worker(s), 1 core e ~64 MiB cada
 ```
 
-- O node guarda **sua cópia da blockchain** em `~/.panda/chain.db` e valida
+- O node guarda **sua cópia da blockchain** em `~/.zhu/chain.db` e valida
   cada bloco por conta própria — você não confia em ninguém.
 - **Ele já está minerando** (1 core, ~64 MiB). Cada bloco que você achar
-  paga 50 PANDA para a sua wallet.
+  paga 50 ZHU para a sua wallet.
 - Se não existia wallet no datadir, ele criou uma e mostrou o endereço no
   log — **faça o backup**.
 - `Ctrl+C` encerra com segurança (nunca corrompe o banco). As transações
@@ -213,7 +213,7 @@ Com o node rodando, abra **outro terminal** (os comandos falam com o node
 pela porta RPC local — nunca abrem o banco diretamente):
 
 ```sh
-./panda-node info
+./zhu info
 ```
 ```
 perfil       devnet
@@ -221,7 +221,7 @@ altura       1204
 tip          30b3c9159b5c7461...
 dificuldade  5.10 (bits 1e032500)
 alvo         1 bloco a cada 60s
-recompensa   25 PANDA (próximo halving no bloco 2000)
+recompensa   25 ZHU (próximo halving no bloco 2000)
 peers        3
 mempool      2 tx(s)
 minerando    sim (24.6 H/s)
@@ -234,12 +234,12 @@ endereço     PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1
 > log do node.
 
 ```sh
-./panda-node balance
+./zhu balance
 ```
 ```
 endereço   PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1
-saldo      6350 PANDA (127 UTXOs)
-gastável   5900 PANDA (coinbases maduras, nada pendente)
+saldo      6350 ZHU (127 UTXOs)
+gastável   5900 ZHU (coinbases maduras, nada pendente)
 ```
 
 > 💡 **Por que "saldo" ≠ "gastável"?** Recompensa de mineração só pode ser
@@ -247,7 +247,7 @@ gastável   5900 PANDA (coinbases maduras, nada pendente)
 > reorgs). O saldo total inclui as recompensas ainda "maturando".
 
 ```sh
-./panda-node send -to PEC69ijTweUjXAGF81hExKRRVctgNpJuXp -amount 1.5
+./zhu send -to PEC69ijTweUjXAGF81hExKRRVctgNpJuXp -amount 1.5
 ```
 ```
 📤 enviado! txid 8a3bd0c1...
@@ -258,7 +258,7 @@ A transação viaja pela rede, um minerador qualquer a inclui num bloco, e o
 destinatário vê o valor no `balance` dele — normalmente em 1–2 blocos.
 
 ```sh
-./panda-node block 42        # explora um bloco por dentro (vazio = a ponta)
+./zhu block 42        # explora um bloco por dentro (vazio = a ponta)
 ```
 ```
 bloco        42  (301 confirmação(ões))
@@ -268,12 +268,12 @@ dificuldade  4.00 (bits 1e040000)  nonce 1183
 transações   2
 
 tx 1  4f9e21c07a55...  (coinbase — a recompensa deste bloco)
-   →  PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1  10 PANDA
+   →  PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1  10 ZHU
 
 tx 2  8a3bd0c1e99f...
    gasta  7bc19d02aa14...:0
-   →  PEC69ijTweUjXAGF81hExKRRVctgNpJuXp  1.5 PANDA
-   →  PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1  8.49 PANDA
+   →  PEC69ijTweUjXAGF81hExKRRVctgNpJuXp  1.5 ZHU
+   →  PPMA1Lvdx6cNF6pkanYJzza1sfJBi3ucS1  8.49 ZHU
 ```
 
 É a blockchain sem mistério: a primeira transação de todo bloco é a
@@ -286,23 +286,23 @@ UTXO gasto e para onde os valores foram. No app de desktop, a aba
 ## 5. Configuração
 
 > **Dois arquivos, duas responsabilidades:** o `build.conf` (seção 1) é de
-> quem **compila**; o `panda.conf` desta seção é de quem **roda o node**.
+> quem **compila**; o `zhu.conf` desta seção é de quem **roda o node**.
 > Quem só recebe o binário pronto nunca toca no `build.conf`.
 
 Três formas, nesta ordem de precedência (a de cima vence):
 
-1. **Flag na linha de comando** — `./panda-node run -listen :9552`
-2. **Arquivo `panda.conf`** — no diretório onde você roda o node
+1. **Flag na linha de comando** — `./zhu run -listen :9552`
+2. **Arquivo `zhu.conf`** — no diretório onde você roda o node
 3. **Variável de ambiente** — `NODE_LISTEN=:9552`
 
-### panda.conf
+### zhu.conf
 
 Formato `chave=valor`, uma por linha, `#` comenta. As chaves são os nomes
 dos flags. Um arquivo típico de quem roda um node:
 
 ```ini
-# panda.conf
-datadir=/home/voce/.panda
+# zhu.conf
+datadir=/home/voce/.zhu
 listen=:9551                  # aceita conexões de outros nodes
 peers=192.168.1.10:9551       # quem você conhece (vírgula separa vários)
 mine=true
@@ -310,13 +310,13 @@ miners=1
 profile=devnet
 ```
 
-Com o arquivo no lugar, `./panda-node run` basta.
+Com o arquivo no lugar, `./zhu run` basta.
 
 ### Flags e variáveis do `run`
 
 | Flag | Env | Default | O que faz |
 |---|---|---|---|
-| `-datadir` | `NODE_DATADIR` | `~/.panda` | onde vivem `chain.db` e `wallet.json` |
+| `-datadir` | `NODE_DATADIR` | `~/.zhu` | onde vivem `chain.db` e `wallet.json` |
 | `-listen` | `NODE_LISTEN` | `:9551` | porta P2P; **vazio = só conexões de saída** (funciona atrás de NAT sem configurar nada) |
 | `-rpc` | `NODE_RPC` | `127.0.0.1:8555` | RPC local (recusa qualquer endereço fora de loopback) |
 | `-peers` | `NODE_PEERS` | — | nodes iniciais, `host:porta` separados por vírgula |
@@ -335,14 +335,14 @@ Com o arquivo no lugar, `./panda-node run` basta.
 
 ```sh
 # terminal 1
-./panda-node run -datadir ~/.panda/n1 -listen :9551 -rpc 127.0.0.1:8551
+./zhu run -datadir ~/.zhu/n1 -listen :9551 -rpc 127.0.0.1:8551
 # terminal 2
-./panda-node run -datadir ~/.panda/n2 -listen :9552 -rpc 127.0.0.1:8552 -peers 127.0.0.1:9551
+./zhu run -datadir ~/.zhu/n2 -listen :9552 -rpc 127.0.0.1:8552 -peers 127.0.0.1:9551
 ```
 
 O segundo node baixa e **valida** toda a chain do primeiro (sync inicial),
 e daí em diante os dois competem minerando. Confira com
-`./panda-node info -rpc 127.0.0.1:8552` — as alturas convergem.
+`./zhu info -rpc 127.0.0.1:8552` — as alturas convergem.
 
 ### Nodes em máquinas diferentes (a rede da turma)
 
@@ -354,7 +354,7 @@ hostname -I               # Linux
 ipconfig                  # Windows
 ```
 
-Cada amigo aponta o `panda.conf` para quem ele conhece:
+Cada amigo aponta o `zhu.conf` para quem ele conhece:
 
 ```ini
 # na casa do João (conhece o servidor da Maria)
@@ -389,16 +389,16 @@ encontro que os outros usam como primeiro `peers=`.
 
 ### Linux (systemd)
 
-`/etc/systemd/system/panda-node.service`:
+`/etc/systemd/system/zhu.service`:
 
 ```ini
 [Unit]
-Description=PANDA Coin node
+Description=Zhu node
 After=network-online.target
 
 [Service]
-User=panda
-ExecStart=/home/panda/panda-node run -datadir /home/panda/.panda
+User=zhu
+ExecStart=/home/zhu/zhu run -datadir /home/zhu/.zhu
 Restart=on-failure
 RestartSec=5
 
@@ -407,14 +407,14 @@ WantedBy=multi-user.target
 ```
 
 ```sh
-sudo systemctl enable --now panda-node
-journalctl -u panda-node -f        # acompanhar o log
+sudo systemctl enable --now zhu
+journalctl -u zhu -f        # acompanhar o log
 ```
 
 ### macOS
 
 ```sh
-caffeinate -is ./panda-node run    # segura o sleep enquanto o node roda
+caffeinate -is ./zhu run    # segura o sleep enquanto o node roda
 ```
 
 Notebook de tampa fechada precisa também de
@@ -422,7 +422,7 @@ Notebook de tampa fechada precisa também de
 
 ### Windows
 
-Agende o `panda-node.exe run` no Agendador de Tarefas ("ao iniciar o
+Agende o `zhu.exe run` no Agendador de Tarefas ("ao iniciar o
 computador", "executar mesmo sem usuário logado") e desative a suspensão em
 Energia.
 
@@ -435,7 +435,7 @@ memory-hard, a segurança da rede vem da *quantidade* de participantes, não
 da potência de cada um — cada casa minerando um pouco é o que descentraliza.
 
 - O custo é fixo e baixo: **1 core + ~64 MiB de RAM por worker** (default 1).
-- Cada bloco achado paga **50 PANDA** (devnet) para a wallet do datadir.
+- Cada bloco achado paga **50 ZHU** (devnet) para a wallet do datadir.
 - A recompensa "matura" por **10 blocos** antes de poder ser gasta.
 - A dificuldade se ajusta sozinha a cada 100 blocos para manter ~1 bloco
   por minuto (devnet), não importa quantos nodes entrem ou saiam.
@@ -472,7 +472,7 @@ Edite o `torrc` (`/etc/tor/torrc` no Linux, `/opt/homebrew/etc/tor/torrc`
 no macOS) e acrescente:
 
 ```
-HiddenServiceDir /var/lib/tor/panda-node/
+HiddenServiceDir /var/lib/tor/zhu/
 HiddenServicePort 9551 127.0.0.1:9551
 ```
 
@@ -480,18 +480,18 @@ Reinicie o Tor (`sudo systemctl restart tor` / `brew services restart tor`)
 e leia seu endereço onion:
 
 ```sh
-sudo cat /var/lib/tor/panda-node/hostname
-# exemplo: pandaxyzabc...def.onion
+sudo cat /var/lib/tor/zhu/hostname
+# exemplo: zhuxyzabc...def.onion
 ```
 
 Rode o node aceitando conexões **só do Tor local** (o mundo externo não vê
 a porta, só o onion) e anunciando o `.onion` aos peers:
 
 ```sh
-./panda-node run -listen 127.0.0.1:9551 -advertise pandaxyzabc...def.onion:9551
+./zhu run -listen 127.0.0.1:9551 -advertise zhuxyzabc...def.onion:9551
 ```
 
-Compartilhe `pandaxyzabc...def.onion:9551` com os amigos — esse é o seu
+Compartilhe `zhuxyzabc...def.onion:9551` com os amigos — esse é o seu
 endereço na rede, sem expor seu IP nem abrir porta no roteador. Sem o
 `-advertise`, o node anunciaria o `127.0.0.1:9551` local (inútil para os
 outros); com ele, o peer exchange espalha seu onion e outros nodes Tor
@@ -504,10 +504,10 @@ Quem disca para um `.onion` aponta o `-proxy` para o SOCKS5 do Tor local
 DNS ou TCP vaza por fora:
 
 ```sh
-./panda-node run -proxy 127.0.0.1:9050 -peers pandaxyzabc...def.onion:9551 -listen ""
+./zhu run -proxy 127.0.0.1:9050 -peers zhuxyzabc...def.onion:9551 -listen ""
 ```
 
-No `panda.conf` (e na aba Ajustes do desktop) são as chaves `proxy=` e
+No `zhu.conf` (e na aba Ajustes do desktop) são as chaves `proxy=` e
 `peers=`. Os dois lados podem combinar os papéis: receber como hidden
 service (9.2) **e** discar via `-proxy` — aí ninguém expõe IP.
 
@@ -518,7 +518,7 @@ service (9.2) **e** discar via `-proxy` — aí ninguém expõe IP.
 >   nem mexer em roteador.
 > - Com `-proxy`, **toda** a saída passa pelo Tor (de propósito, para não
 >   vazar). Se o daemon `tor` não estiver rodando, o node fica sem
->   conexões de saída — confira com `panda-node info` (peers > 0).
+>   conexões de saída — confira com `zhu info` (peers > 0).
 
 ---
 
@@ -531,7 +531,7 @@ service (9.2) **e** discar via `-proxy` — aí ninguém expõe IP.
 | `run` | sobe o full node (chain + mempool + p2p + miner) | ver [seção 5](#5-configuração) |
 | `info` | altura, dificuldade, recompensa/halving, peers, mempool, hashrate | `-rpc` |
 | `balance` | saldo de um endereço | `-rpc`, `-address` (default: wallet do node) |
-| `send` | envia PANDA | `-rpc`, `-to P...`, `-amount 1.5`, `-fee-rate` |
+| `send` | envia Zhu | `-rpc`, `-to P...`, `-amount 1.5`, `-fee-rate` |
 | `block` | explora um bloco: coinbase, transações, valores, destinos | `-rpc`, altura ou hash (vazio = ponta) |
 | `wallet new` | cria wallet + 12 palavras de backup (0600; nunca sobrescreve) | `-file` ou `-datadir` |
 | `wallet restore` | recupera a wallet a partir das 12 palavras | `-file` ou `-datadir`, palavras como argumentos |
@@ -540,7 +540,7 @@ service (9.2) **e** discar via `-proxy` — aí ninguém expõe IP.
 | `genesis` | (dev) minera o bloco 0 de um perfil | `-profile` |
 | `version` | versão do binário (do `build.conf` de quem compilou) | — |
 
-Todos aceitam `-config caminho.conf` (default: `panda.conf` do diretório
+Todos aceitam `-config caminho.conf` (default: `zhu.conf` do diretório
 atual, se existir).
 
 ### A bancada didática (a demo que precedeu o node)
@@ -596,7 +596,7 @@ A direção de dependência é estrita:
 
 ## 13. App de desktop
 
-Para quem prefere uma **janela** a um terminal: o `panda-desktop` faz o
+Para quem prefere uma **janela** a um terminal: o `zhu-desktop` faz o
 mesmo que o console — e a mais: se não houver node rodando, **ele mesmo
 vira o node**. Interface nativa escrita em Go (Fyne) — sem Electron, sem
 navegador embutido — com visual clean claro/escuro automático.
@@ -604,17 +604,17 @@ navegador embutido — com visual clean claro/escuro automático.
 ### Como funciona (híbrido)
 
 Ao abrir, o app procura um node na RPC local (`127.0.0.1:8555` ou o que
-estiver no `panda.conf`):
+estiver no `zhu.conf`):
 
 - **Achou** → vira um *painel* do node que já roda no terminal/servidor.
 - **Não achou** → sobe o node **dentro do próprio app** (mesma config:
-  flags > `panda.conf` > `NODE_*`), minerando por padrão. Fechar a janela
+  flags > `zhu.conf` > `NODE_*`), minerando por padrão. Fechar a janela
   desliga tudo com segurança.
 
-Na **primeira vez** (sem `panda.conf` salvo), o app abre uma tela de
+Na **primeira vez** (sem `zhu.conf` salvo), o app abre uma tela de
 boas-vindas pedindo o essencial — o peer de quem te convidou, se quer
 minerar, portas — salva tudo e só então liga o node. A configuração fica em
-`~/.panda/panda.conf` (o app acha sozinho, pode abrir por clique duplo) e é
+`~/.zhu/zhu.conf` (o app acha sozinho, pode abrir por clique duplo) e é
 editável a qualquer momento pela aba **Ajustes**, com a opção de reiniciar
 o node na hora para aplicar.
 
@@ -629,7 +629,7 @@ marcadas, taxa mostrada à parte nas saídas, com filtro
 tudo/transações/mineração e paginação), **Enviar**
 (com confirmação), **Blocos** (explorador: as transações dentro de cada
 bloco), **Atividade** (os logs do node ao vivo: peers conectando, blocos,
-retarget, halving) e **Ajustes** (o panda.conf na interface).
+retarget, halving) e **Ajustes** (o zhu.conf na interface).
 
 ### Build
 
@@ -640,7 +640,7 @@ desenvolvimento que builda só a GUI, reusando o `build.conf` (versão E
 regras de consenso, que valem também para o node embutido):
 
 ```sh
-scripts/build-desktop.sh      # sai em dist/panda-desktop-<os>-<arch>
+scripts/build-desktop.sh      # sai em dist/zhu-desktop-<os>-<arch>
 ```
 
 Pré-requisitos de compilação (só para quem builda; o binário final não
@@ -661,6 +661,6 @@ O node de terminal continua sendo o binário estático de sempre — o desktop
 
 ---
 
-*Documentação da devnet PANDA. Detalhes de design: [PLAN.md](../PLAN.md) ·
+*Documentação da devnet Zhu. Detalhes de design: [PLAN.md](../PLAN.md) ·
 Guia narrado para iniciantes: [TUTORIAL.md](../TUTORIAL.md) · Visão do
 projeto: [PROPOSTA.md](../PROPOSTA.md).*

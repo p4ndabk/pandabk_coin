@@ -1,6 +1,6 @@
 # Spec: params — parâmetros de consenso e economia
 
-> Domínio do node PANDA (ver [PLAN.md](../../PLAN.md)). Adaptado de
+> Domínio do node Zhu (ver [PLAN.md](../../PLAN.md)). Adaptado de
 > BASE_SPEC.md: este pacote não tem HTTP; a seção "Endpoints" vira "Interface
 > do pacote". Não depende de nenhum outro pacote do node.
 
@@ -16,8 +16,8 @@ importam — e nunca muda depois que a rede está no ar.
 
 O **halving** é o mecanismo de escassez do Bitcoin que replicamos: a recompensa
 por bloco cai pela metade a cada N blocos, então a emissão total converge para
-um teto matemático (soma geométrica). No perfil devnet: 50 PANDA iniciais,
-halving a cada 1.000 blocos → supply máximo ~100.000 PANDA.
+um teto matemático (soma geométrica). No perfil devnet: 50 ZHU iniciais,
+halving a cada 1.000 blocos → supply máximo ~100.000 ZHU.
 
 ## Decisões & porquês (regra e arquitetura)
 
@@ -39,10 +39,10 @@ contratos.
   `BlockSubsidy` se um dos dois fosse editado; derivar garante que os dois
   concordam por definição. O preço (um laço de dezenas de iterações) é pago uma
   vez, fora do caminho quente.
-- **Subunidade inteira (1 PANDA = 1e8), nunca ponto flutuante.** Dinheiro em
+- **Subunidade inteira (1 ZHU = 1e8), nunca ponto flutuante.** Dinheiro em
   `float64` acumula erro de arredondamento — dois nós somando as mesmas taxas em
   ordem diferente chegariam a saldos diferentes. Todo valor é `uint64` de
-  subunidades; a conversão para PANDA é só apresentação.
+  subunidades; a conversão para Zhu é só apresentação.
 - **`Argon2Threads = 1`, sempre.** O paralelismo de mineração é do `miner`
   (N workers), não de dentro de um hash. Se o número de threads entrasse no
   cálculo do Argon2, o hash dependeria do hardware de quem minerou — e deixaria
@@ -98,7 +98,7 @@ Fica de fora:
 | TargetSpacing | time.Duration | 60s no devnet |
 | RetargetInterval | uint64 | 100 blocos |
 | HalvingInterval | uint64 | 1.000 blocos |
-| InitialSubsidy | uint64 | 5_000_000_000 subunidades (50 PANDA; 1 PANDA = 1e8) |
+| InitialSubsidy | uint64 | 5_000_000_000 subunidades (50 ZHU; 1 ZHU = 1e8) |
 | Argon2Mem / Argon2Time / Argon2Threads | uint32/uint32/uint8 | 65536 KiB / 1 / 1 no devnet; 1024 KiB no perfil test |
 | PowLimitBits | uint32 | dificuldade mínima (target máximo) em nBits |
 | MaxClamp | int64 | 4 — limite de ajuste por retarget (4×/¼×) |

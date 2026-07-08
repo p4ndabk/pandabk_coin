@@ -1,6 +1,6 @@
 # Spec: pow — proof of work Argon2id, target e retarget
 
-> Domínio do node PANDA (ver [PLAN.md](../../PLAN.md)). Depende de `core` e
+> Domínio do node Zhu (ver [PLAN.md](../../PLAN.md)). Depende de `core` e
 > `params`. Funções puras — sem estado, sem I/O.
 
 ## Conceito
@@ -48,7 +48,7 @@ verificar*.
   lateral mas é mais fraco contra GPU; Argon2d é o oposto. Argon2id é o híbrido
   recomendado pela RFC 9106 para uso geral — é o default seguro quando não há
   razão para escolher um extremo.
-- **Salt fixo (`pandabk/pow/v1`), não por-bloco.** No Argon2 como *password
+- **Salt fixo (`zhubk/pow/v1`), não por-bloco.** No Argon2 como *password
   hashing* o salt é aleatório por senha. Aqui ele serve de **separador de
   domínio**: fixá-lo faz o PoW ser uma função pura do header (todo nó recalcula
   e confere o mesmo valor) e amarra o hash a *esta* rede — trocar o salt geraria
@@ -95,7 +95,7 @@ dificuldade (nBits ↔ target ↔ trabalho) e o ajuste periódico de dificuldade
 
 Entra:
 - `argon2.go` — `PowHash(headerBytes, params)` via `golang.org/x/crypto/argon2`
-  (IDKey, salt fixo `"pandabk/pow/v1"`, keyLen 32)
+  (IDKey, salt fixo `"zhubk/pow/v1"`, keyLen 32)
 - `target.go` — `CompactToTarget(nBits) *big.Int`, `TargetToCompact`,
   `BlockWork(target)` = `2^256/(target+1)`, `CheckProofOfWork(header, params)`
 - `retarget.go` — `NextBits(firstTimestamp, lastTimestamp, currentBits, params)`

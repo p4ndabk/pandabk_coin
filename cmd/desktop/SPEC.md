@@ -2,7 +2,7 @@
 
 ## Conceito
 
-O `panda-desktop` é a **janela** do node: tudo que a CLI faz no terminal
+O `zhu-desktop` é a **janela** do node: tudo que a CLI faz no terminal
 (`info`, `balance`, `send`), numa interface gráfica nativa — para o amigo
 que nunca abriu um terminal ter um node em casa com dois cliques.
 
@@ -11,7 +11,7 @@ Duas ideias sustentam o design:
 1. **Híbrido**: ao abrir, o app procura um node já em execução na RPC local
    (`getinfo` com timeout curto). Achou → vira um **painel** do node externo.
    Não achou → **embute o node no próprio processo** (importa
-   `internal/node`; é tudo Go) com a mesma config do CLI (flags > panda.conf
+   `internal/node`; é tudo Go) com a mesma config do CLI (flags > zhu.conf
    > env `NODE_*` > defaults). Fechar a janela desliga o node embutido na
    ordem segura.
 2. **Um caminho só de dados**: nos dois modos a GUI fala com o node pela
@@ -30,7 +30,7 @@ casa. Cada decisão remove uma fricção sem duplicar o que o node já faz.
 
 - **Um caminho só de dados: a GUI fala com o node pela mesma RPC local da CLI.**
   Nos dois modos (painel de node externo ou node embutido) a interface usa
-  `internal/rpcclient` — o mesmo canal do `panda-node info/balance/send`. Isso
+  `internal/rpcclient` — o mesmo canal do `zhu info/balance/send`. Isso
   evita uma segunda implementação de acesso ao estado (e uma segunda fonte de
   bugs), e respeita o bbolt single-writer: a GUI nunca abre o banco de um node
   vivo. A regra "ninguém além do processo do node escreve no banco" é a mesma do
@@ -42,18 +42,18 @@ casa. Cada decisão remove uma fricção sem duplicar o que o node já faz.
   embutir é só uma chamada — o usuário não precisa saber que "node" e "app" são
   coisas distintas. Fechar a janela desliga o node embutido na ordem segura
   (p2p→miner→RPC→bbolt), a mesma do `run`.
-- **Config idêntica à do CLI (flag > panda.conf > env > default), ancorada em
-  `~/.panda/panda.conf`.** Reusar a precedência do node significa que a GUI e o
+- **Config idêntica à do CLI (flag > zhu.conf > env > default), ancorada em
+  `~/.zhu/zhu.conf`.** Reusar a precedência do node significa que a GUI e o
   terminal enxergam o mesmo node com a mesma config — editar pela aba Ajustes é
   editar o mesmo arquivo que o CLI lê. Ancorar num caminho fixo (não no diretório
   de abertura) é o que faz o clique duplo no Finder funcionar; `-config` e um
-  panda.conf no diretório atual ainda vencem, para não quebrar o fluxo CLI.
+  zhu.conf no diretório atual ainda vencem, para não quebrar o fluxo CLI.
 - **Regras de consenso do build.conf valem também no desktop.** O
   `scripts/build-desktop.sh` reusa os mesmos `-ldflags` do node. Se o desktop
   pudesse ser compilado com regras diferentes do node, o app formaria uma rede
   separada do binário CLI do mesmo pacote — exatamente o acidente que o gênesis
   derivado existe para impedir. Um build, uma rede.
-- **Tela de pré-configuração antes do primeiro boot.** Sem panda.conf salvo, o
+- **Tela de pré-configuração antes do primeiro boot.** Sem zhu.conf salvo, o
   app pede peers/mineração/portas *antes* de ligar o node, em vez de subir com
   defaults e deixar o usuário leigo sem peers (um node sozinho não faz nada
   visível). A primeira experiência é "configurei e conectei", não "abri e nada
@@ -62,7 +62,7 @@ casa. Cada decisão remove uma fricção sem duplicar o que o node já faz.
   cross-compile da GUI).** Ligar mineração pela GUI pede uma RPC `setmining` que
   ainda não existe (v2); tray/gráficos/i18n são polimento; a GUI usa cgo e por
   isso é buildada nativa em cada OS (`fyne-cross` opcional). Cada corte mantém a
-  v1 focada em "ver o node e enviar PANDA", que é o que prova o produto.
+  v1 focada em "ver o node e enviar Zhu", que é o que prova o produto.
 
 ## Escopo (v1)
 
@@ -76,13 +76,13 @@ casa. Cada decisão remove uma fricção sem duplicar o que o node já faz.
       retarget, halving); em modo painel, aponta para o terminal do node
 - [x] Tema Apple-clean (claro/escuro automático) com Inter (SIL OFL,
       licença embutida em assets/)
-- [x] **Primeira vez**: sem panda.conf salvo → tela de pré-configuração
+- [x] **Primeira vez**: sem zhu.conf salvo → tela de pré-configuração
       (peers, mineração, portas, datadir) ANTES de ligar o node; salvar cria
       o arquivo e inicia
-- [x] Aba **Ajustes**: edita o panda.conf pela interface (mesmas chaves da
+- [x] Aba **Ajustes**: edita o zhu.conf pela interface (mesmas chaves da
       CLI) com "salvar e reiniciar o node embutido"
-- [x] panda.conf do desktop ancorado em `~/.panda/panda.conf` (clique duplo
-      funciona); `-config` e um panda.conf no diretório atual ainda vencem
+- [x] zhu.conf do desktop ancorado em `~/.zhu/zhu.conf` (clique duplo
+      funciona); `-config` e um zhu.conf no diretório atual ainda vencem
 - [x] Fechar janela → shutdown limpo do node embutido (p2p→miner→RPC→bbolt)
 - [x] Regras de consenso do build.conf valem também aqui
       (scripts/build-desktop.sh reusa os mesmos -ldflags)
@@ -100,5 +100,5 @@ casa. Cada decisão remove uma fricção sem duplicar o que o node já faz.
   `CGO_ENABLED=0 go build ./cmd/node` continua estático.
 - Sem node no ar: abrir o app sobe node embutido e o Início atualiza.
 - Com `node run` ativo: o app conecta como painel sem tocar no datadir.
-- Enviar PANDA pela aba Enviar aparece no `balance` do destinatário.
+- Enviar Zhu pela aba Enviar aparece no `balance` do destinatário.
 - Fechar a janela com node embutido: chain reabre limpa na próxima vez.

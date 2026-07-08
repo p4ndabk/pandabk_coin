@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"pandabk_coin/internal/wallet"
+	"zhu/internal/wallet"
 )
 
 // runWallet expõe a wallet na CLI: `wallet new` cria a chave com backup de
@@ -16,8 +16,8 @@ import (
 // comandos que PRECISAM da chain (balance, send) falam com o node via RPC.
 func runWallet(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, `uso: node wallet new|show|restore [-file wallet.json]
-       node wallet restore -file wallet.json palavra1 palavra2 ... palavra12`)
+		fmt.Fprintln(os.Stderr, `uso: zhu wallet new|show|restore [-file wallet.json]
+       zhu wallet restore -file wallet.json palavra1 palavra2 ... palavra12`)
 		os.Exit(2)
 	}
 	sub := args[0]
@@ -43,12 +43,12 @@ func runWallet(args []string) {
 		printMnemonic(phrase)
 		fmt.Println()
 		fmt.Println("⚠️  elas são exibidas UMA única vez e recuperam sua carteira em qualquer")
-		fmt.Println("   máquina (node wallet restore). Quem lê as palavras leva os fundos;")
+		fmt.Println("   máquina (zhu wallet restore). Quem lê as palavras leva os fundos;")
 		fmt.Println("   quem as perde junto com o arquivo perde tudo — não existe suporte.")
 	case "restore":
 		phrase := strings.Join(fs.Args(), " ")
 		if strings.TrimSpace(phrase) == "" {
-			fmt.Fprintln(os.Stderr, "uso: node wallet restore [-file wallet.json] palavra1 ... palavra12")
+			fmt.Fprintln(os.Stderr, "uso: zhu wallet restore [-file wallet.json] palavra1 ... palavra12")
 			os.Exit(2)
 		}
 		w, err := wallet.Restore(*file, phrase)

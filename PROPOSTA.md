@@ -1,8 +1,8 @@
-# PANDA Coin — A proposta: uma moeda digital nas mãos de muitos
+# Zhu — A proposta: uma moeda digital nas mãos de muitos
 
 ## A visão
 
-A PANDA Coin nasce de uma pergunta simples: e se qualquer pessoa na Terra
+A Zhu nasce de uma pergunta simples: e se qualquer pessoa na Terra
 pudesse participar de uma rede de dinheiro digital usando apenas o computador
 que já tem em casa? Não um investidor com capital para montar um galpão de
 máquinas. Não um data center. Uma pessoa comum, com um notebook usado, um PC
@@ -52,14 +52,14 @@ tirar o dinheiro das mãos de poucos entregou sua segurança a um punhado de
 galpões industriais. Junto veio a corrida armamentista de energia: como
 hardware melhor sempre vence, a competição vira quem queima mais eletricidade.
 
-A PANDA Coin não abandona a prova de trabalho — ela continua sendo a forma
+A Zhu não abandona a prova de trabalho — ela continua sendo a forma
 mais testada de garantir uma rede sem dono. A proposta é trocar a natureza do
 trabalho.
 
 ## A solução: trabalho limitado por memória, não por cálculo
 
 A ideia central chama-se memory-hard, ou dureza de memória. Em vez de um
-algoritmo de cálculo puro, a loteria da PANDA Coin usa o Argon2id — um
+algoritmo de cálculo puro, a loteria da Zhu usa o Argon2id — um
 algoritmo criado originalmente para proteger senhas, vencedor de uma
 competição internacional de criptografia em 2015, projetado exatamente para
 frustrar atacantes com hardware especializado.
@@ -84,7 +84,7 @@ chip que rende três vezes mais que um notebook usado.
 Essa não é uma aposta teórica. O Monero, uma das maiores criptomoedas em
 operação, adotou essa filosofia em 2019 com um algoritmo chamado RandomX,
 justamente para expulsar os ASICs da sua rede — e funcionou: é hoje a maior
-rede do mundo minerada por gente comum em processadores comuns. A PANDA Coin
+rede do mundo minerada por gente comum em processadores comuns. A Zhu
 segue o mesmo caminho com o Argon2id, que entrega o mesmo efeito com uma
 implementação muito mais simples e auditável.
 
@@ -102,7 +102,7 @@ eleição e um leilão.
 
 ## Como a rede se mantém estável enquanto cresce
 
-Uma rede assim precisa de um termostato. Na PANDA Coin, a meta é um bloco por
+Uma rede assim precisa de um termostato. Na Zhu, a meta é um bloco por
 minuto na fase de desenvolvimento — dez minutos na rede definitiva, como no
 Bitcoin. Mas se mais gente entra minerando, os blocos passam a sair rápido
 demais; se gente sai, devagar demais.
@@ -173,7 +173,7 @@ teorema eterno, é uma corrida. As placas de vídeo modernas, por exemplo, têm
 memória extremamente rápida, e dependendo dos parâmetros escolhidos podem
 manter alguma vantagem sobre processadores comuns — menor que no SHA-256,
 mas não zero. E a pesquisa em otimizações avança: o Monero precisou trocar de
-algoritmo mais de uma vez quando fabricantes encontraram brechas. A PANDA
+algoritmo mais de uma vez quando fabricantes encontraram brechas. A Zhu
 Coin herda essa realidade: os parâmetros do Argon2id — quanta memória,
 quantas passadas — são decisões de consenso que podem precisar de revisão, e
 uma troca dessas em rede viva é um evento delicado que exige a concordância
@@ -193,13 +193,13 @@ olhos abertos.
 
 ## A economia: escassez programada
 
-A política monetária da PANDA Coin é herdada do Bitcoin e é talvez a ideia
+A política monetária da Zhu é herdada do Bitcoin e é talvez a ideia
 mais radical dele: uma moeda cuja emissão não pode ser alterada por nenhum
 governo, empresa ou fundador, porque está escrita nas regras que todos os nós
 verificam.
 
 Cada bloco minerado cria moedas novas, pagas a quem o minerou — é a única
-forma de PANDA nascer. Essa recompensa começa em cinquenta moedas por bloco e
+forma de Zhu nascer. Essa recompensa começa em cinquenta moedas por bloco e
 cai pela metade em intervalos fixos: é o halving. Cinquenta viram vinte e
 cinco, depois doze e meio, e assim por diante, até que a emissão
 matematicamente se esgota. A soma de todos os blocos que existirão converge
@@ -261,7 +261,7 @@ rodariam nodes completos, e a verificação — o ato de não precisar confiar e
 ninguém — viraria privilégio.
 
 E há o detalhe do roteador doméstico: a maioria das casas está atrás de NAT,
-sem endereço acessível de fora. Na PANDA Coin, um node que apenas abre
+sem endereço acessível de fora. Na Zhu, um node que apenas abre
 conexões de saída é cidadão pleno — valida tudo, minera, propaga transações e
 blocos — sem configurar absolutamente nada no roteador. Abrir portas para
 receber conexões é opcional, uma doação extra à saúde da rede.
@@ -296,7 +296,7 @@ matemática. Criptografia não pede permissão. E o lema deles era um chamado à
 ação: cypherpunks escrevem código. Não fazem manifesto e esperam; constroem a
 ferramenta e soltam no mundo.
 
-A PANDA Coin se assume herdeira dessa tradição, e isso muda o que ela é. Não
+A Zhu se assume herdeira dessa tradição, e isso muda o que ela é. Não
 nasce como produto, não tem empresa por trás, não promete retorno a ninguém.
 Nasce como código aberto que qualquer pessoa pode ler, rodar, copiar e
 modificar. A identidade na rede é um par de chaves que você mesmo gera no seu
@@ -309,7 +309,7 @@ confiar é um último recurso — verificar é o padrão.
 E há uma escolha filosófica deliberada que talvez seja a mais contracultural
 de todas: esta moeda não nasce para ser dinheiro. Não há venda inicial, não
 há moedas reservadas para fundadores, não há promessa de valorização — cada
-PANDA que existir terá nascido de um bloco minerado por alguém, em algum
+Zhu que existir terá nascido de um bloco minerado por alguém, em algum
 lugar, numa máquina comum. Se um dia ela valer alguma coisa, que seja porque
 pessoas encontraram uso nela — não porque alguém convenceu outras de que
 enriqueceriam. O experimento é anterior à pergunta do preço: é sobre
@@ -322,18 +322,18 @@ E o que uma comunidade faria com isso? Aqui entra o sonho — declaradamente um
 sonho, ainda sem forma final, e está tudo bem que seja assim.
 
 Existe um protocolo chamado Nostr que é, talvez, o parente mais próximo da
-PANDA Coin em espírito. É uma rede social sem dono: não há empresa, não há
+Zhu em espírito. É uma rede social sem dono: não há empresa, não há
 servidor central, não há algoritmo decidindo o que você vê. Sua identidade é
-um par de chaves criptográficas — o mesmo conceito da carteira da PANDA — e
+um par de chaves criptográficas — o mesmo conceito da carteira da Zhu — e
 suas mensagens são notas assinadas que viajam por retransmissores
 independentes espalhados pelo mundo. Ninguém pode apagar sua conta porque sua
 conta é sua chave. É a mesma filosofia, aplicada à palavra em vez do valor.
 
 No Nostr de hoje já existe um gesto bonito: os zaps, pequenos agradecimentos
-em bitcoin enviados a quem publicou algo que valeu a pena. O sonho da PANDA
+em bitcoin enviados a quem publicou algo que valeu a pena. O sonho da Zhu
 Coin é habitar esse mesmo gesto de um jeito próprio: imagine um like que
 custa alguma coisa — não muito, um valor simbólico, minerado no notebook de
-quem o envia. Um like de PANDA não seria um clique infinito e gratuito como
+quem o envia. Um like de Zhu não seria um clique infinito e gratuito como
 nas redes de empresa, onde a aprovação é abundante e por isso não significa
 nada. Seria um gesto escasso: alguém dedicou um pedaço da sua máquina, do seu
 tempo, da sua participação na rede, e escolheu dar isso a você porque o que
@@ -344,7 +344,7 @@ dela.
 Talvez seja isso. Talvez seja outra coisa: reputação verificável, recompensa
 para quem hospeda infraestrutura da própria rede, um selo de apoio a
 projetos, um jogo. A honestidade do projeto neste ponto é total: ainda não se
-sabe para que a PANDA vai servir — e isso não é uma fraqueza do plano, é o
+sabe para que a Zhu vai servir — e isso não é uma fraqueza do plano, é o
 plano. As melhores tecnologias descentralizadas não nasceram com um caso de
 uso fechado; nasceram como ferramentas abertas nas mãos de gente curiosa, e o
 uso emergiu. Primeiro se constrói a rede — leve, justa, aberta, nas mãos de
@@ -358,7 +358,7 @@ incômoda: descentralização não é um estado que se declara, é um equilíbri
 que se projeta — e qualquer vantagem de escala, por menor que seja, compõe ao
 longo do tempo até virar concentração.
 
-A PANDA Coin é um experimento sobre projetar esse equilíbrio desde a primeira
+A Zhu é um experimento sobre projetar esse equilíbrio desde a primeira
 linha de código: escolher o algoritmo que anula a vantagem do capital, limitar
 o apetite do software ao que uma casa comum oferece, tratar o notebook usado e
 o Raspberry Pi como os cidadãos de primeira classe da rede. Se a tese estiver

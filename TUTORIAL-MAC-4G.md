@@ -1,6 +1,6 @@
 # Tutorial — conectando um Mac pelo 4G ao seu node, via Tor
 
-> Cenário deste guia: **você** roda um node PANDA na sua casa e um **amigo
+> Cenário deste guia: **você** roda um node Zhu na sua casa e um **amigo
 > com um Mac na rede 4G** vai conectar nele, minerar junto e servir de
 > segundo peer — se a sua internet cair, o node dele continua e a rede
 > segue viva. Tudo **via Tor**: ninguém expõe IP, ninguém abre porta em
@@ -16,7 +16,7 @@ também falha com CGNAT. O Tor contorna os dois lados de uma vez:
 
 - **Você** vira um *hidden service*: ganha um endereço `xyz...onion:9551`
   que funciona de qualquer lugar do mundo, sem abrir porta. Só a porta do
-  PANDA fica alcançável — e quem conecta nem sabe seu IP.
+  Zhu fica alcançável — e quem conecta nem sabe seu IP.
 - **O amigo** disca esse `.onion` com o flag `-proxy` do node (suporte
   nativo a SOCKS5 — funciona no macOS sem gambiarras), e o IP dele também
   não aparece para ninguém.
@@ -33,8 +33,8 @@ Na raiz do projeto:
 scripts/build-macos.sh
 ```
 
-Sai o `dist/panda-<versão>-macos.tar.gz` com binários para Apple Silicon e
-Intel, `panda.conf`, instalador (que já remove a quarentena do Gatekeeper),
+Sai o `dist/zhu-<versão>-macos.tar.gz` com binários para Apple Silicon e
+Intel, `zhu.conf`, instalador (que já remove a quarentena do Gatekeeper),
 LEIA-ME e SHA256SUMS. Envie esse `.tar.gz` para o seu amigo.
 
 > **Importante:** os dois lados precisam rodar o **mesmo binário (mesma
@@ -53,7 +53,7 @@ Edite o `torrc` (`/opt/homebrew/etc/tor/torrc` em Apple Silicon,
 `/usr/local/etc/tor/torrc` em Mac Intel) e acrescente:
 
 ```
-HiddenServiceDir /opt/homebrew/var/lib/tor/panda-node/
+HiddenServiceDir /opt/homebrew/var/lib/tor/zhu/
 HiddenServicePort 9551 127.0.0.1:9551
 ```
 
@@ -61,20 +61,20 @@ Suba o Tor e leia seu endereço onion:
 
 ```sh
 brew services start tor
-cat /opt/homebrew/var/lib/tor/panda-node/hostname
-# exemplo: pandaxyzabc...def.onion
+cat /opt/homebrew/var/lib/tor/zhu/hostname
+# exemplo: zhuxyzabc...def.onion
 ```
 
 Agora rode o node escutando **só localmente** (o mundo externo não vê a
 porta — só o onion chega nela, via Tor) e anunciando o onion aos peers:
 
 ```sh
-bin/panda-node run -profile devnet \
+bin/zhu run -profile devnet \
   -listen 127.0.0.1:9551 \
-  -advertise pandaxyzabc...def.onion:9551
+  -advertise zhuxyzabc...def.onion:9551
 ```
 
-Passe o endereço `pandaxyzabc...def.onion:9551` para o seu amigo — esse é
+Passe o endereço `zhuxyzabc...def.onion:9551` para o seu amigo — esse é
 o seu node na rede, e ele não revela nem seu IP nem sua cidade.
 
 ## Passo 2 — O amigo: instale Tor + node e conecte
@@ -89,18 +89,18 @@ brew install tor && brew services start tor
 Depois o node:
 
 ```sh
-tar xzf panda-<versão>-macos.tar.gz
-cd panda-<versão>-macos
+tar xzf zhu-<versão>-macos.tar.gz
+cd zhu-<versão>-macos
 ./instalar.sh
 ```
 
-Edite o `panda.conf` apontando para o seu onion, com a saída roteada pelo
+Edite o `zhu.conf` apontando para o seu onion, com a saída roteada pelo
 Tor local:
 
 ```
 profile=devnet
 proxy=127.0.0.1:9050
-peers=pandaxyzabc...def.onion:9551
+peers=zhuxyzabc...def.onion:9551
 listen=
 ```
 
@@ -111,16 +111,16 @@ valida, minera e propaga.)
 E suba:
 
 ```sh
-panda-node run
+zhu run
 ```
 
-Prefere tela em vez de terminal? O **PANDA Desktop** tem os mesmos campos
+Prefere tela em vez de terminal? O **Zhu Desktop** tem os mesmos campos
 na primeira abertura e na aba Ajustes — "Conectar a (peers)" recebe o
 `.onion` e "Proxy SOCKS5 — Tor" recebe `127.0.0.1:9050`.
 
 O que acontece no primeiro `run`:
 
-- A **wallet dele nasce automaticamente** no datadir (`~/.panda`) — anote
+- A **wallet dele nasce automaticamente** no datadir (`~/.zhu`) — anote
   as 12 palavras que aparecem uma única vez.
 - O node atravessa o Tor, conecta no seu onion, **sincroniza a chain** e
   começa a **minerar** (ligado por padrão) — a coinbase paga a wallet dele.
@@ -136,7 +136,7 @@ Nos logs dos dois lados deve aparecer o aperto de mão:
 E em outro terminal, de cada lado:
 
 ```sh
-panda-node info
+zhu info
 ```
 
 A **altura** dos dois deve convergir para o mesmo número. Via Tor o
@@ -167,7 +167,7 @@ faz diferença no dia a dia.
   teste longo:
 
   ```sh
-  caffeinate -is panda-node run
+  caffeinate -is zhu run
   ```
 
 - IP do 4G muda o tempo todo — **irrelevante aqui**: o `.onion` é estável e
@@ -183,4 +183,4 @@ faz diferença no dia a dia.
 | Nenhum peer, nada no log | Daemon `tor` parado em um dos lados | `brew services start tor` (proxy 9050 do lado dele; hidden service do seu) |
 | Onion não responde | Hidden service mal configurado | Conferir `torrc`, reiniciar o Tor, `cat …/hostname` de novo |
 | Conecta e cai logo | Circuito Tor instável no 4G | Normal em rede móvel — o redial resolve sozinho |
-| Altura não converge | Um dos lados parado ou sem peer | `panda-node info` nos dois e olhar o log do 🤝 |
+| Altura não converge | Um dos lados parado ou sem peer | `zhu info` nos dois e olhar o log do 🤝 |

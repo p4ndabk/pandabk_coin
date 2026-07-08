@@ -7,22 +7,22 @@ import (
 	"strconv"
 	"strings"
 
-	"pandabk_coin/internal/node"
+	"zhu/internal/node"
 )
 
-// O desktop ancora o panda.conf num lugar FIXO (~/.panda/panda.conf) para
+// O desktop ancora o zhu.conf num lugar FIXO (~/.zhu/zhu.conf) para
 // não depender do diretório de onde o app foi aberto — clique duplo no
 // Finder funciona. Compatibilidade: -config explícito vence, e um
-// panda.conf no diretório atual (fluxo antigo/CLI) ainda é respeitado.
+// zhu.conf no diretório atual (fluxo antigo/CLI) ainda é respeitado.
 
 func desktopConfigPath(configFlag string) string {
 	if configFlag != "" {
 		return configFlag
 	}
 	if _, err := os.Stat(node.DefaultConfigFile); err == nil {
-		return node.DefaultConfigFile // panda.conf do diretório atual (CLI)
+		return node.DefaultConfigFile // zhu.conf do diretório atual (CLI)
 	}
-	return filepath.Join(node.DefaultDataDir(), "panda.conf")
+	return filepath.Join(node.DefaultDataDir(), "zhu.conf")
 }
 
 // confValues é o que a interface edita — o subconjunto do node.Config que
@@ -82,7 +82,7 @@ func (v confValues) validate() error {
 	return nil
 }
 
-// saveConf grava o panda.conf gerado pela interface (chave=valor, as mesmas
+// saveConf grava o zhu.conf gerado pela interface (chave=valor, as mesmas
 // chaves dos flags — o arquivo continua legível pela CLI).
 func saveConf(path string, v confValues) error {
 	if err := v.validate(); err != nil {
@@ -92,7 +92,7 @@ func saveConf(path string, v confValues) error {
 		return err
 	}
 	var b strings.Builder
-	b.WriteString("# panda.conf — gerado pela aba Ajustes do PANDA Desktop.\n")
+	b.WriteString("# zhu.conf — gerado pela aba Ajustes do Zhu Desktop.\n")
 	b.WriteString("# Editar à mão também vale: chave=valor, as chaves são os nomes dos flags.\n")
 	if v.Peers != "" {
 		b.WriteString("peers=" + v.Peers + "\n")

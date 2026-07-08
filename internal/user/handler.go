@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"pandabk_coin/internal/apierror"
+	"zhu/internal/apierror"
 )
 
 type Handler struct {

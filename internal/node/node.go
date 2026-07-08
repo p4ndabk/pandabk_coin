@@ -10,14 +10,14 @@ import (
 	"os"
 	"time"
 
-	"pandabk_coin/internal/chain"
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/mempool"
-	"pandabk_coin/internal/miner"
-	"pandabk_coin/internal/p2p"
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/pow"
-	"pandabk_coin/internal/wallet"
+	"zhu/internal/chain"
+	"zhu/internal/core"
+	"zhu/internal/mempool"
+	"zhu/internal/miner"
+	"zhu/internal/p2p"
+	"zhu/internal/params"
+	"zhu/internal/pow"
+	"zhu/internal/wallet"
 )
 
 var ErrRPCNotLoopback = errors.New("node: a RPC só aceita bind em loopback (127.0.0.1/::1) — é a interface de controle do dono, não uma API pública")
@@ -127,7 +127,7 @@ func (n *Node) Start() error {
 	ctx, n.cancel = context.WithCancel(context.Background())
 	if n.miner != nil {
 		n.miner.Start(ctx, func(b *core.Block) {
-			n.logBlock("✅ bloco %d minerado", b)
+			n.logBlock("⛏️  bloco %d minerado", b)
 			n.srv.BroadcastBlock(b.Header.ID())
 		})
 	}
@@ -150,7 +150,7 @@ func (n *Node) logBlock(verb string, b *core.Block) {
 		}
 	}
 	if h > 0 && n.p.HalvingInterval > 0 && h%n.p.HalvingInterval == 0 {
-		log.Printf("✂️  halving no bloco %d: recompensa agora %s PANDA por bloco", h, FormatPanda(n.p.BlockSubsidy(h)))
+		log.Printf("✂️  halving no bloco %d: recompensa agora %s ZHU por bloco", h, FormatZhu(n.p.BlockSubsidy(h)))
 	}
 }
 

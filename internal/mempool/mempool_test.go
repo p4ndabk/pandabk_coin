@@ -8,10 +8,10 @@ import (
 	"sync"
 	"testing"
 
-	"pandabk_coin/internal/chain"
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/pow"
+	"zhu/internal/chain"
+	"zhu/internal/core"
+	"zhu/internal/params"
+	"zhu/internal/pow"
 )
 
 // Harness do M3: uma chain de verdade (perfil de teste) com blocos minerados

@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"time"
 
-	"pandabk_coin/internal/params"
+	"zhu/internal/params"
 )
 
 // NextBits calcula a dificuldade da próxima época (retarget estilo Bitcoin):

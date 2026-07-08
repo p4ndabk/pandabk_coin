@@ -1,4 +1,4 @@
-# Imagem de cross-compile do PANDA Desktop (Fyne usa cgo, que não cruza de
+# Imagem de cross-compile do Zhu Desktop (Fyne usa cgo, que não cruza de
 # SO com o toolchain normal). Roda SEMPRE nativa no arch do host (emular o
 # toolchain do Go segfaulta); quem cruza é o gcc da Debian.
 #

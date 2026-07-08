@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"pandabk_coin/internal/apierror"
 	"gorm.io/gorm"
+	"zhu/internal/apierror"
 )
 
 func respond(err error) *httptest.ResponseRecorder {

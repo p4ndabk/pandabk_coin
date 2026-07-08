@@ -1,6 +1,6 @@
 # Spec: chain — a blockchain como máquina de estados
 
-> Domínio do node PANDA (ver [PLAN.md](../../PLAN.md)). Depende de `core`,
+> Domínio do node Zhu (ver [PLAN.md](../../PLAN.md)). Depende de `core`,
 > `pow`, `params` e `go.etcd.io/bbolt`. É o coração do consenso: decide o que
 > entra na cadeia e mantém o estado dela em disco.
 

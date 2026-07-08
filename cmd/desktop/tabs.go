@@ -14,9 +14,9 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/node"
-	"pandabk_coin/internal/rpcclient"
+	"zhu/internal/core"
+	"zhu/internal/node"
+	"zhu/internal/rpcclient"
 )
 
 // card monta um cartão clean: número grande em cima, rótulo pequeno em
@@ -45,7 +45,7 @@ func (u *ui) statusTab() fyne.CanvasObject {
 	modeLine := container.NewHBox(dot, caption(mode, u.muted()))
 
 	grid := container.NewGridWithColumns(3,
-		u.card("balance", "saldo (panda)"),
+		u.card("balance", "saldo (zhu)"),
 		u.card("height", "altura da chain"),
 		u.card("difficulty", "dificuldade"),
 		u.card("peers", "peers conectados"),
@@ -68,7 +68,7 @@ func (u *ui) statusTab() fyne.CanvasObject {
 	u.mempoolList.TextStyle = fyne.TextStyle{Monospace: true}
 	u.mempoolList.Wrapping = fyne.TextWrapWord
 
-	title := canvas.NewText("PANDA", theme.Color(theme.ColorNameForeground))
+	title := canvas.NewText("Zhu", theme.Color(theme.ColorNameForeground))
 	title.TextSize = 30
 	title.FontSource = fontMedium
 	ver := caption("versão "+u.version, u.muted())
@@ -90,8 +90,8 @@ func (u *ui) statusTab() fyne.CanvasObject {
 }
 
 func consensusText(info infoResp) string {
-	return fmt.Sprintf("perfil %s · 1 bloco a cada %ds · recompensa %s PANDA · próximo halving no bloco %s",
-		info.Profile, info.SpacingSecs, info.RewardPanda, formatUint(info.NextHalving))
+	return fmt.Sprintf("perfil %s · 1 bloco a cada %ds · recompensa %s ZHU · próximo halving no bloco %s",
+		info.Profile, info.SpacingSecs, info.RewardZhu, formatUint(info.NextHalving))
 }
 
 // ── Carteira ────────────────────────────────────────────────────────────────
@@ -161,7 +161,7 @@ func (u *ui) walletTab() fyne.CanvasObject {
 // aparece em "NA FILA", na aba Início).
 func formatActivity(entries []activityResp) string {
 	if len(entries) == 0 {
-		return "nada ainda — minere ou receba PANDA e o extrato aparece aqui"
+		return "nada ainda — minere ou receba ZHU e o extrato aparece aqui"
 	}
 	var s strings.Builder
 	for _, e := range entries {
@@ -174,12 +174,12 @@ func formatActivity(entries []activityResp) string {
 		default:
 			sign = "−"
 			who = "para " + shortAddr(e.Counterparty)
-			if e.FeePanda != "" {
-				who += "  (taxa " + e.FeePanda + ")"
+			if e.FeeZhu != "" {
+				who += "  (taxa " + e.FeeZhu + ")"
 			}
 		}
 		fmt.Fprintf(&s, "%s%-12s bloco %-6d %s  %s\n",
-			sign, e.AmountPanda, e.Height, time.Unix(e.Time, 0).Format("02/01 15:04"), who)
+			sign, e.AmountZhu, e.Height, time.Unix(e.Time, 0).Format("02/01 15:04"), who)
 	}
 	return strings.TrimRight(s.String(), "\n")
 }
@@ -197,7 +197,7 @@ func (u *ui) sendTab() fyne.CanvasObject {
 	to := widget.NewEntry()
 	to.SetPlaceHolder("endereço de destino (P...)")
 	amount := widget.NewEntry()
-	amount.SetPlaceHolder("valor em PANDA, ex.: 1.5")
+	amount.SetPlaceHolder("valor em ZHU, ex.: 1.5")
 	fee := widget.NewEntry()
 	fee.SetPlaceHolder("taxa em subunidades/byte (vazio = padrão)")
 
@@ -239,7 +239,7 @@ func (u *ui) confirmAndSend(to, amount, fee *widget.Entry) {
 		params["fee_rate"] = rate
 	}
 
-	summary := fmt.Sprintf("Enviar %s PANDA para\n%s ?", strings.TrimSpace(amount.Text), dest)
+	summary := fmt.Sprintf("Enviar %s ZHU para\n%s ?", strings.TrimSpace(amount.Text), dest)
 	dialog.NewConfirm("Confirmar envio", summary, func(ok bool) {
 		if !ok {
 			return
@@ -294,8 +294,8 @@ func formatMempoolList(txs []mempoolResp) string {
 			fmt.Fprintf(&s, "… e mais %d", len(txs)-8)
 			break
 		}
-		fmt.Fprintf(&s, "%s…  %s PANDA  %d bytes  taxa %s (%.1f/byte)\n",
-			tx.TxID[:16], tx.ValuePanda, tx.Size, tx.FeePanda, tx.FeeRate)
+		fmt.Fprintf(&s, "%s…  %s ZHU  %d bytes  taxa %s (%.1f/byte)\n",
+			tx.TxID[:16], tx.ValueZhu, tx.Size, tx.FeeZhu, tx.FeeRate)
 	}
 	return strings.TrimRight(s.String(), "\n")
 }
@@ -317,8 +317,8 @@ type blockResp struct {
 			Index uint32 `json:"index"`
 		} `json:"ins"`
 		Outs []struct {
-			ValuePanda string `json:"value_panda"`
-			Address    string `json:"address"`
+			ValueZhu string `json:"value_zhu"`
+			Address  string `json:"address"`
 		} `json:"outs"`
 	} `json:"txs"`
 }
@@ -378,7 +378,7 @@ func formatBlock(b blockResp) string {
 			}
 		}
 		for _, out := range tx.Outs {
-			fmt.Fprintf(&s, "   → %s   %s PANDA\n", out.Address, out.ValuePanda)
+			fmt.Fprintf(&s, "   → %s   %s ZHU\n", out.Address, out.ValueZhu)
 		}
 	}
 	return s.String()

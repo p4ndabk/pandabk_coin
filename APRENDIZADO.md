@@ -1,4 +1,4 @@
-# Aprendizado — acompanhando a construção da PANDA
+# Aprendizado — acompanhando a construção da Zhu
 
 > Diário didático do projeto: a cada milestone, uma seção explicando **o que
 > foi construído, por que, e como testar com as próprias mãos**. Complementa
@@ -12,14 +12,14 @@
 Três pacotes, na ordem em que um depende do outro:
 
 **1. `internal/params` — as regras do jogo.** Um pacote só com números: a
-recompensa inicial (50 PANDA), o halving (a cada 1.000 blocos), o tempo-alvo
+recompensa inicial (50 ZHU), o halving (a cada 1.000 blocos), o tempo-alvo
 (60s), a janela de retarget (100 blocos), os parâmetros do Argon2id (64 MiB
 por hash), o tamanho máximo de bloco (256 KiB). Está tudo em "perfis"
 (`DevNet()`, `TestNet()`, `MainNet()`) porque esses números são **o acordo da
 rede** — dois nós com números diferentes rejeitam os blocos um do outro. A
 função mais bonita daqui é a `MaxSupply()`: ela não tem o teto de emissão
 escrito em lugar nenhum — ela **soma o cronograma de halving** e o teto
-(~100.000 PANDA) emerge da matemática. Teste em
+(~100.000 ZHU) emerge da matemática. Teste em
 `params_test.go` prova que a soma bate.
 
 **2. `internal/core` — as peças.** O `Header` do bloco (exatos 96 bytes:
@@ -144,7 +144,7 @@ CGO_ENABLED=0 go build -o bin/node ./cmd/node
 
 # Terminal 3 — consultas a qualquer momento (não atrapalham a mineração):
 ./bin/node blocks  -db mineracao.db -last 10   # os últimos blocos: quem, quando, ⏱ quanto tempo
-./bin/node ranking -db mineracao.db            # placar: blocos, %, PANDA, ritmo da rede
+./bin/node ranking -db mineracao.db            # placar: blocos, %, Zhu, ritmo da rede
 
 # A) O efeito "mais gente minerando": deixe só a Alice rodando por uma época
 #    (10 blocos) e anote o ritmo. Suba o Bob e espere a próxima época:

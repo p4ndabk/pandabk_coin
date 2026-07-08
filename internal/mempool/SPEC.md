@@ -1,6 +1,6 @@
 # Spec: mempool — pool de transações pendentes
 
-> Domínio do node PANDA (ver [PLAN.md](../../PLAN.md)). Depende de `core` e
+> Domínio do node Zhu (ver [PLAN.md](../../PLAN.md)). Depende de `core` e
 > `chain`.
 
 ## Conceito

@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"pandabk_coin/internal/chain"
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/mempool"
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/pow"
+	"zhu/internal/chain"
+	"zhu/internal/core"
+	"zhu/internal/mempool"
+	"zhu/internal/params"
+	"zhu/internal/pow"
 )
 
 // ── codec ───────────────────────────────────────────────────────────────────
@@ -389,16 +389,16 @@ func TestAdvertiseGossipedToPeers(t *testing.T) {
 	a.start()
 
 	b := newTestNode(t, a.s.Addr())
-	b.s.cfg.Advertise = "pandaxyz.onion:9551" // hidden service anuncia o onion, não o 127.0.0.1
+	b.s.cfg.Advertise = "zhuxyz.onion:9551" // hidden service anuncia o onion, não o 127.0.0.1
 	b.start()
-	if got := b.s.Addr(); got != "pandaxyz.onion:9551" {
+	if got := b.s.Addr(); got != "zhuxyz.onion:9551" {
 		t.Fatalf("Addr() = %q, esperava o advertise", got)
 	}
 
 	waitFor(t, "A aprender o endereço anunciado por B", func() bool {
 		a.s.mu.Lock()
 		defer a.s.mu.Unlock()
-		return a.s.addrBook["pandaxyz.onion:9551"]
+		return a.s.addrBook["zhuxyz.onion:9551"]
 	})
 }
 

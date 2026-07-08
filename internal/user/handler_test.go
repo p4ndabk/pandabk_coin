@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
-	"pandabk_coin/internal/user"
 	"gorm.io/gorm"
+	"zhu/internal/user"
 )
 
 const testSecret = "test-secret"

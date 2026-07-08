@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"os"
 
-	"pandabk_coin/internal/config"
-	"pandabk_coin/internal/database"
-	"pandabk_coin/internal/user"
 	"gorm.io/gorm"
+	"zhu/internal/config"
+	"zhu/internal/database"
+	"zhu/internal/user"
 )
 
 func main() {

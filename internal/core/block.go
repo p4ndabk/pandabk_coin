@@ -1,4 +1,4 @@
-// Package core define os tipos fundamentais da PANDA (bloco, transação UTXO,
+// Package core define os tipos fundamentais da Zhu (bloco, transação UTXO,
 // merkle, endereço) e sua serialização binária canônica — a base
 // determinística sobre a qual todo o consenso é calculado. Sem I/O, sem
 // estado. Ver internal/core/SPEC.md.

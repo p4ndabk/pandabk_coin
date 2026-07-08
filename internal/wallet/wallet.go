@@ -17,7 +17,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"pandabk_coin/internal/core"
+	"zhu/internal/core"
 )
 
 var (

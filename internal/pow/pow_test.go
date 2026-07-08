@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/params"
+	"zhu/internal/core"
+	"zhu/internal/params"
 )
 
 func TestCompactRoundTrip(t *testing.T) {

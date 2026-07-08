@@ -98,7 +98,7 @@ func normalizeMnemonic(phrase string) (string, error) {
 }
 
 // seedFromMnemonic é o BIP39 seed: PBKDF2-HMAC-SHA512, 2048 iterações,
-// salt "mnemonic"+passphrase. A PANDA usa passphrase vazia.
+// salt "mnemonic"+passphrase. A ZHU usa passphrase vazia.
 func seedFromMnemonic(mnemonic, passphrase string) []byte {
 	return pbkdf2.Key([]byte(mnemonic), []byte("mnemonic"+passphrase), 2048, 64, sha512.New)
 }

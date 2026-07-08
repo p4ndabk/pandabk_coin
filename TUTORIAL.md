@@ -1,25 +1,25 @@
-# Tutorial PANDA — sua wallet e seu node, passo a passo
+# Tutorial Zhu — sua wallet e seu node, passo a passo
 
 > A referência completa (instalação em todos os sistemas, rede multi-node,
 > Tor, todos os comandos) é a **[documentação oficial](docs/README.md)** —
 > este tutorial é a versão narrada para a primeira vez.
 
 > Guia para quem nunca rodou uma criptomoeda. Duas trilhas independentes:
-> **Parte 1** cria sua wallet (5 minutos). **Parte 2** coloca um node PANDA
+> **Parte 1** cria sua wallet (5 minutos). **Parte 2** coloca um node Zhu
 > para rodar na sua máquina e conversar com outros (15 minutos).
 > A **Parte 3** explica com honestidade em que estágio o projeto está.
 
 ## Antes de começar
 
-Você precisa do binário `panda-node`. Se recebeu o executável pronto, pule
+Você precisa do binário `zhu`. Se recebeu o executável pronto, pule
 este passo. Para compilar do código-fonte (requer [Go](https://go.dev) 1.25+):
 
 ```sh
-git clone <repo> && cd pandabk_coin
-CGO_ENABLED=0 go build -o bin/panda-node ./cmd/node
+git clone <repo> && cd zhu
+CGO_ENABLED=0 go build -o bin/zhu ./cmd/node
 ```
 
-Sai um binário **estático, sem nenhuma dependência** — copie `bin/panda-node`
+Sai um binário **estático, sem nenhuma dependência** — copie `bin/zhu`
 para qualquer Mac, Linux ou Raspberry Pi e ele roda. Isso é de propósito: a
 meta do projeto é *um node em cada casa*.
 
@@ -47,7 +47,7 @@ a chave secreta você não mostra **para ninguém, nunca**.
 ### Criando
 
 ```sh
-./bin/panda-node wallet new
+./bin/zhu wallet new
 ```
 
 Você verá algo assim:
@@ -63,7 +63,7 @@ Você verá algo assim:
 
 As **12 palavras** (padrão BIP39, o mesmo de carteiras Bitcoin) aparecem
 **uma única vez** e reconstroem sua carteira em qualquer máquina:
-`panda-node wallet restore -file wallet.json palavra1 ... palavra12`.
+`zhu wallet restore -file wallet.json palavra1 ... palavra12`.
 
 O que aconteceu:
 
@@ -90,7 +90,7 @@ o cache local da chave; copiá-lo para um pendrive também vale. Regras de ouro:
 ### Conferindo depois
 
 ```sh
-./bin/panda-node wallet show           # reexibe seu endereço
+./bin/zhu wallet show           # reexibe seu endereço
 ```
 
 Se aparecer `permissão do arquivo insegura`, algum processo/cópia relaxou as
@@ -107,18 +107,18 @@ backup.
 Um node é a sua **cópia da verdade**: ele guarda a chain inteira no seu disco
 e confere cada bloco por conta própria. Você não confia em ninguém — nem em
 quem te passou os blocos. Se além de validar você também **minerar**, sua
-máquina concorre a criar os próximos blocos e ganhar a recompensa. Na PANDA o
+máquina concorre a criar os próximos blocos e ganhar a recompensa. Na Zhu o
 proof of work é o Argon2id (memory-hard): 1 core + 64 MiB de RAM competem de
 igual para igual — notebook usado e Raspberry Pi valem tanto quanto qualquer
 máquina.
 
 ### Passo 1 — arquivo de configuração
 
-Em vez de repetir flags gigantes, crie um `panda.conf` no diretório onde o
+Em vez de repetir flags gigantes, crie um `zhu.conf` no diretório onde o
 node vai rodar:
 
 ```sh
-cp panda.conf.example panda.conf
+cp zhu.conf.example zhu.conf
 ```
 
 E edite. Para o **primeiro node** da sua rede (ex.: a máquina que fica sempre
@@ -135,12 +135,12 @@ blocks=0               # minerar sem parar (Ctrl+C para sair)
 ```
 
 Flag na linha de comando sempre **vence** o arquivo, e `blocks`/`ranking`
-aproveitam o mesmo `panda.conf`.
+aproveitam o mesmo `zhu.conf`.
 
 ### Passo 2 — ligar
 
 ```sh
-./bin/panda-node powdemo
+./bin/zhu powdemo
 ```
 
 Você verá o banner com a dificuldade atual e, a cada bloco encontrado:
@@ -148,7 +148,7 @@ Você verá o banner com a dificuldade atual e, a cada bloco encontrado:
 ```
 ✅ [15:25:35] bloco 42 minerado por Servidor!
    ⏱  38s para minerar (alvo 1m0s) | 412 tentativas | nonce 16
-   recompensa  +50 PANDA  →  sua carteira: 2100 PANDA (42 blocos)
+   recompensa  +50 ZHU  →  sua carteira: 2100 ZHU (42 blocos)
 ```
 
 Cada tentativa de hash preenche 64 MiB de RAM — é isso que mantém ASICs fora
@@ -158,14 +158,14 @@ perseguir o `spacing` configurado.
 Numa máquina que fica 24/7 (Mac):
 
 ```sh
-caffeinate -is ./bin/panda-node powdemo     # segura o sleep enquanto roda
+caffeinate -is ./bin/zhu powdemo     # segura o sleep enquanto roda
 ```
 
 (Notebook de tampa fechada também precisa de `sudo pmset -a disablesleep 1`.)
 
 ### Passo 3 — conectar um segundo node
 
-Na **outra máquina**, o `panda.conf` aponta para a primeira (descubra o IP
+Na **outra máquina**, o `zhu.conf` aponta para a primeira (descubra o IP
 dela com `ipconfig getifaddr en0` no Mac):
 
 ```ini
@@ -196,11 +196,11 @@ pé, e automaticamente pode servir um terceiro node com `listen=`.
 
 ### Passo 4 — acompanhar
 
-No mesmo diretório (o `panda.conf` é encontrado sozinho):
+No mesmo diretório (o `zhu.conf` é encontrado sozinho):
 
 ```sh
-./bin/panda-node blocks -last 10     # últimos blocos da chain
-./bin/panda-node ranking             # placar por minerador
+./bin/zhu blocks -last 10     # últimos blocos da chain
+./bin/zhu ranking             # placar por minerador
 ```
 
 ### Problemas comuns
@@ -222,24 +222,24 @@ completo já existe e liga tudo: chain validada por consenso, mempool, rede
 p2p e **mineração ligada por padrão pagando a SUA wallet**.
 
 ```sh
-./bin/panda-node run
+./bin/zhu run
 ```
 
 No primeiro `run`, o node cria sozinho uma wallet no datadir (default
-`~/.panda/wallet.json`, permissão 0600) e mostra o endereço — **faça backup
+`~/.zhu/wallet.json`, permissão 0600) e mostra o endereço — **faça backup
 dela** (Parte 1 explica por quê). O banner já mostra as regras do jogo e o
 estado da sua chain:
 
 ```
-🐼 PANDA node no ar
+🐼 Zhu node no ar
 
    perfil       devnet
-   datadir      /Users/voce/.panda
+   datadir      /Users/voce/.zhu
    p2p          [::]:9551
    rpc          127.0.0.1:8555   (info/balance/send falam aqui)
    mineração    LIGADA — 1 worker(s), 1 core e ~64 MiB cada
    consenso     1 bloco a cada 1m0s | retarget a cada 100 blocos | halving a cada 1000
-   recompensa   50 PANDA pelo próximo bloco
+   recompensa   50 ZHU pelo próximo bloco
    chain        altura 342, dificuldade 4.00
 ```
 
@@ -252,7 +252,7 @@ com sua dificuldade, e os eventos de consenso:
 📥 bloco 129 recebido da rede (1 txs, dificuldade 4.00) — 9c01ab34
 ✅ bloco 343 minerado (2 txs, dificuldade 4.00) — 3fca90e1
 🎯 retarget no bloco 400: dificuldade 4.00 → 5.10 (alvo: 1 bloco a cada 1m0s)
-✂️  halving no bloco 1000: recompensa agora 25 PANDA por bloco
+✂️  halving no bloco 1000: recompensa agora 25 ZHU por bloco
 👋 peer 192.168.1.20:53112 desconectado
 ```
 
@@ -265,9 +265,9 @@ com sua dificuldade, e os eventos de consenso:
 Daí em diante:
 
 ```sh
-./bin/panda-node info                          # estado do node (abaixo)
-./bin/panda-node balance                       # seu saldo (coinbases maduras)
-./bin/panda-node send -to P... -amount 1.5     # envia PANDA
+./bin/zhu info                          # estado do node (abaixo)
+./bin/zhu balance                       # seu saldo (coinbases maduras)
+./bin/zhu send -to P... -amount 1.5     # envia Zhu
 ```
 
 ```
@@ -276,7 +276,7 @@ altura       342
 tip          8a3f...
 dificuldade  4.00 (bits 1e040000)
 alvo         1 bloco a cada 60s
-recompensa   50 PANDA (próximo halving no bloco 1000)
+recompensa   50 ZHU (próximo halving no bloco 1000)
 peers        2
 mempool      0 tx(s)
 minerando    sim (21.7 H/s)
@@ -288,9 +288,9 @@ IP real):
 
 ```sh
 # terminal 1
-./bin/panda-node run -datadir ~/.panda/n1 -listen :9551 -rpc 127.0.0.1:8551
+./bin/zhu run -datadir ~/.zhu/n1 -listen :9551 -rpc 127.0.0.1:8551
 # terminal 2
-./bin/panda-node run -datadir ~/.panda/n2 -listen :9552 -rpc 127.0.0.1:8552 -peers 127.0.0.1:9551
+./bin/zhu run -datadir ~/.zhu/n2 -listen :9552 -rpc 127.0.0.1:8552 -peers 127.0.0.1:9551
 ```
 
 O segundo node baixa e **valida** cada bloco do primeiro (sync inicial),
@@ -298,7 +298,7 @@ depois os dois competem minerando e convergem sempre para a cadeia com mais
 trabalho. Um `send` de um lado aparece no `balance` do outro após a
 confirmação (a recompensa de minerar leva 10 blocos para "maturar" antes de
 poder ser gasta — regra de consenso). Quem quiser só validar sem minerar:
-`-mine=false`. O `panda.conf` também funciona aqui (chaves `datadir`,
+`-mine=false`. O `zhu.conf` também funciona aqui (chaves `datadir`,
 `listen`, `rpc`, `peers`/`peer`, `mine`, `miners`, `profile`).
 
 ### Prefere uma janela?
@@ -319,7 +319,7 @@ inicial e o node completo acima. O que ainda é verdade:
   curtos (bloco de ~60s, halving a cada 1.000). Os parâmetros econômicos
   finais ainda estão em discussão (há inclinação para emissão constante sem
   halving) — a chain atual pode ser zerada/reiniciada até a rede "de
-  verdade" nascer. Não trate PANDA de devnet como valor.
+  verdade" nascer. Não trate Zhu de devnet como valor.
 - **Sem descoberta automática de peers além do gossip**: você ainda aponta
   `-peers` para alguém que conhece (o address book propaga o resto).
 - **RPC só em localhost**, sem autenticação — é a interface do dono do node.

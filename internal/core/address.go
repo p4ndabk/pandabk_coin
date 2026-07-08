@@ -7,8 +7,10 @@ import (
 )
 
 // Endereço = Base58Check(versão 0x37 ‖ PubKeyHash ‖ checksum). A versão 0x37
-// faz todo endereço PANDA começar com a letra P; o checksum (4 bytes de
-// SHA-256d) pega erro de digitação antes de qualquer moeda ser enviada.
+// faz todo endereço começar com a letra P — um prefixo de consenso mantido
+// no rebrand (mudá-lo trocaria o formato de todo endereço já emitido), então
+// endereços Zhu começam com P. O checksum (4 bytes de SHA-256d) pega erro de
+// digitação antes de qualquer moeda ser enviada.
 
 const AddressVersion = 0x37
 

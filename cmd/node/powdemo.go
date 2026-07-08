@@ -23,9 +23,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/pow"
+	"zhu/internal/core"
+	"zhu/internal/params"
+	"zhu/internal/pow"
 )
 
 func runPowDemo(args []string) {
@@ -41,7 +41,7 @@ func runPowDemo(args []string) {
 	dbPath := fs.String("db", "", "arquivo SQLite local: liga o modo corrida entre mineradores")
 	listen := fs.String("listen", "", "endereço host:porta (ex: :9551) para expor -db a mineradores de OUTRAS máquinas")
 	peer := fs.String("peer", "", "endereço host:porta de um minerador -listen remoto: minera de forma independente e reconcilia com ele sempre que possível (sem depender dele estar de pé)")
-	configPath := fs.String("config", "", "arquivo de configuração chave=valor com as mesmas chaves dos flags (default: panda.conf, se existir)")
+	configPath := fs.String("config", "", "arquivo de configuração chave=valor com as mesmas chaves dos flags (default: zhu.conf, se existir)")
 	fs.Parse(args)
 	applyConfig(fs, *configPath)
 
@@ -120,18 +120,18 @@ func runPowDemoSolo(p params.Params, workers int, zeros uint, blocks int, spacin
 	rules := demoRetargetRules(p, retargetN, spacing)
 	bits := initialBits(zeros)
 
-	fmt.Printf(`⛏  PANDA powdemo — proof of work Argon2id (memory-hard)
+	fmt.Printf(`⛏  Zhu powdemo — proof of work Argon2id (memory-hard)
 
    perfil            %s
    memória/hash      %d MiB   ← é isso que expulsa os ASICs
    workers           %d (≈ %d MiB de RAM minerando)
    dificuldade       %#08x inicial (~%s tentativas/bloco)
    retarget          a cada %d blocos, perseguindo %s por bloco
-   recompensa        %s PANDA por bloco (simulada — a chain chega no M2)
+   recompensa        %s ZHU por bloco (simulada — a chain chega no M2)
 
 `, p.Name, p.Argon2Mem/1024, workers, uint32(workers)*(p.Argon2Mem/1024),
 		bits, humanCount(avgAttempts(bits)), retargetN, spacing,
-		formatPanda(p.BlockSubsidy(1)))
+		formatZhu(p.BlockSubsidy(1)))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -170,10 +170,10 @@ func runPowDemoSolo(p params.Params, workers int, zeros uint, blocks int, spacin
 		totalReward += reward
 		id := found.ID()
 		powHash := pow.PowHash(found.Bytes(), p)
-		fmt.Printf("✅ [%s] bloco %d minerado!\n", time.Now().Format("15:04:05"), height)
+		fmt.Printf("⛏️  [%s] bloco %d minerado!\n", time.Now().Format("15:04:05"), height)
 		fmt.Printf("   ⏱  %s para minerar (alvo %s) | %d tentativas | dificuldade %#08x | nonce %d\n",
 			fmtDur(elapsed), spacing, hashes, bits, found.Nonce)
-		fmt.Printf("   recompensa  +%s PANDA  →  carteira simulada: %s PANDA\n", formatPanda(reward), formatPanda(totalReward))
+		fmt.Printf("   recompensa  +%s ZHU  →  carteira simulada: %s ZHU\n", formatZhu(reward), formatZhu(totalReward))
 		fmt.Printf("   hash PoW    %s\n", hex.EncodeToString(powHash[:]))
 		fmt.Printf("   ID do bloco %s\n\n", hex.EncodeToString(id[:]))
 		prev = id
@@ -198,7 +198,7 @@ func runPowDemoSolo(p params.Params, workers int, zeros uint, blocks int, spacin
 		fmt.Printf("   %d blocos em %s (média %.1fs/bloco, alvo %s)\n",
 			minedCount, total.Round(time.Second), total.Seconds()/float64(minedCount), spacing)
 		fmt.Printf("   %d hashes ≈ %.1f H/s sustentado\n", totalHashes, float64(totalHashes)/total.Seconds())
-		fmt.Printf("   carteira simulada: %s PANDA (recompensas ainda são de brincadeira —\n", formatPanda(totalReward))
+		fmt.Printf("   carteira simulada: %s ZHU (recompensas ainda são de brincadeira —\n", formatZhu(totalReward))
 		fmt.Printf("   viram saldo de verdade quando a chain existir, no M2/M3)\n")
 		fmt.Printf("   dificuldade final %#08x (~%s tentativas/bloco)\n", bits, humanCount(avgAttempts(bits)))
 	}
@@ -301,18 +301,18 @@ func runPowDemoShared(p params.Params, name, dbPath, listenAddr, peerAddr string
 		os.Exit(1)
 	}
 
-	fmt.Printf(`⛏  PANDA powdemo — corrida de mineradores
+	fmt.Printf(`⛏  Zhu powdemo — corrida de mineradores
 
    minerador         %s
    fonte             %s (altura atual: %d)
    perfil            %s | %d MiB por hash | %d worker(s)
    dificuldade       %#08x atual (~%s tentativas/bloco)
    retarget          a cada %d blocos, perseguindo %s por bloco
-   carteira          %s PANDA (%d blocos seus já registrados)
+   carteira          %s ZHU (%d blocos seus já registrados)
 
 `, name, location, tip.height, p.Name, p.Argon2Mem/1024, workers,
 		bits, humanCount(avgAttempts(bits)), meta.retarget, meta.spacing,
-		formatPanda(balance), myBlocks)
+		formatZhu(balance), myBlocks)
 
 	sessionStart := time.Now()
 	var sessionHashes uint64
@@ -396,8 +396,8 @@ func runPowDemoShared(p params.Params, name, dbPath, listenAddr, peerAddr string
 				if err != nil {
 					continue
 				}
-				fmt.Printf("📥 [%s] %s minerou o bloco %d (+%s PANDA para ele, ⏱ %s) — %s de trabalho descartado, recomeçando no %d\n\n",
-					time.Now().Format("15:04:05"), row.miner, h, formatPanda(row.reward),
+				fmt.Printf("📥 [%s] %s minerou o bloco %d (+%s ZHU para ele, ⏱ %s) — %s de trabalho descartado, recomeçando no %d\n\n",
+					time.Now().Format("15:04:05"), row.miner, h, formatZhu(row.reward),
 					fmtDur(time.Duration(row.durationMS)*time.Millisecond), fmtDur(elapsed), nt.height+1)
 			}
 			continue
@@ -452,8 +452,8 @@ func runPowDemoShared(p params.Params, name, dbPath, listenAddr, peerAddr string
 		fmt.Printf("✅ [%s] bloco %d minerado por %s!\n", time.Now().Format("15:04:05"), height, name)
 		fmt.Printf("   ⏱  %s para minerar (alvo %s) | %d tentativas | dificuldade %#08x | nonce %d\n",
 			fmtDur(elapsed), meta.spacing, hashes, bits, found.Nonce)
-		fmt.Printf("   recompensa  +%s PANDA  →  sua carteira: %s PANDA (%d blocos)\n",
-			formatPanda(reward), formatPanda(balance), myBlocks)
+		fmt.Printf("   recompensa  +%s ZHU  →  sua carteira: %s ZHU (%d blocos)\n",
+			formatZhu(reward), formatZhu(balance), myBlocks)
 		fmt.Printf("   hash PoW    %s\n", hex.EncodeToString(powHash[:]))
 		fmt.Printf("   ID do bloco %s\n\n", hex.EncodeToString(id[:]))
 	}
@@ -462,7 +462,7 @@ func runPowDemoShared(p params.Params, name, dbPath, listenAddr, peerAddr string
 	fmt.Printf("── resumo da sessão (%s) ───────────────────\n", name)
 	fmt.Printf("   %d blocos seus nesta sessão em %s | %d hashes ≈ %.1f H/s\n",
 		minedCount, total.Round(time.Second), sessionHashes, float64(sessionHashes)/total.Seconds())
-	fmt.Printf("   carteira total: %s PANDA (%d blocos no banco)\n\n", formatPanda(balance), myBlocks)
+	fmt.Printf("   carteira total: %s ZHU (%d blocos no banco)\n\n", formatZhu(balance), myBlocks)
 	// Lê do banco LOCAL (sempre correto — nunca dependeu do peer pra
 	// aceitar blocos), então o placar final não depende do peer estar de pé.
 	if err := printRanking(local, rules, meta); err != nil {
@@ -541,7 +541,7 @@ func avgAttempts(bits uint32) float64 {
 	return f
 }
 
-func formatPanda(subunits uint64) string {
+func formatZhu(subunits uint64) string {
 	whole := subunits / params.CoinUnit
 	frac := subunits % params.CoinUnit
 	if frac == 0 {

@@ -1,4 +1,4 @@
-// Package p2p é a rede da PANDA: TCP puro + frames JSON com prefixo de
+// Package p2p é a rede da Zhu: TCP puro + frames JSON com prefixo de
 // tamanho, gossip por inventário (inv/getdata) e sync inicial por headers.
 // Não existe servidor central — a descentralização da rede é literalmente
 // este pacote. Ver internal/p2p/SPEC.md.

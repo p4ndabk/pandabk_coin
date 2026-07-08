@@ -1,4 +1,4 @@
-// O binário desktop é a janela do node PANDA: o mesmo que a CLI faz no
+// O binário desktop é a janela do node Zhu: o mesmo que a CLI faz no
 // terminal (info/balance/send), numa interface nativa (Fyne — renderização
 // em Go, sem Electron). Híbrido: usa um node já em execução via RPC local
 // ou, se não houver, embute o node no próprio processo. Ver SPEC.md.
@@ -14,21 +14,21 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 
-	"pandabk_coin/internal/node"
+	"zhu/internal/node"
 )
 
 // version é injetada por scripts/build-desktop.sh (-X main.version=...).
 var version = "dev"
 
 func main() {
-	fs := flag.NewFlagSet("panda-desktop", flag.ExitOnError)
+	fs := flag.NewFlagSet("zhu-desktop", flag.ExitOnError)
 	cfg, peersCSV := node.RegisterFlags(fs)
 	peerSingle := fs.String("peer", "", "alias de -peers para um único peer")
-	configPath := fs.String("config", "", "arquivo de configuração chave=valor (default: panda.conf, se existir)")
+	configPath := fs.String("config", "", "arquivo de configuração chave=valor (default: zhu.conf, se existir)")
 	fs.Parse(os.Args[1:])
 
-	// O desktop ancora o panda.conf num caminho fixo (~/.panda/panda.conf,
-	// salvo -config ou um panda.conf no diretório atual). Sem o arquivo =
+	// O desktop ancora o zhu.conf num caminho fixo (~/.zhu/zhu.conf,
+	// salvo -config ou um zhu.conf no diretório atual). Sem o arquivo =
 	// primeira vez: tela de pré-configuração antes de ligar qualquer coisa.
 	confPath := desktopConfigPath(*configPath)
 	firstRun := false
@@ -50,9 +50,9 @@ func main() {
 	logs := newLogStore(500)
 	log.SetOutput(io.MultiWriter(os.Stderr, logs))
 
-	a := app.NewWithID("coin.panda.desktop")
-	a.Settings().SetTheme(pandaTheme{})
-	w := a.NewWindow("PANDA")
+	a := app.NewWithID("coin.zhu.desktop")
+	a.Settings().SetTheme(zhuTheme{})
+	w := a.NewWindow("Zhu")
 	w.Resize(fyne.NewSize(960, 660))
 	w.CenterOnScreen()
 

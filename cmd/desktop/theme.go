@@ -28,11 +28,11 @@ var (
 	fontLight   = fyne.NewStaticResource("InterDisplay-Light.ttf", interLight)
 )
 
-type pandaTheme struct{}
+type zhuTheme struct{}
 
-var _ fyne.Theme = pandaTheme{}
+var _ fyne.Theme = zhuTheme{}
 
-func (pandaTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+func (zhuTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
 	dark := variant == theme.VariantDark
 	switch name {
 	case theme.ColorNameBackground:
@@ -71,7 +71,7 @@ func (pandaTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) col
 	return theme.DefaultTheme().Color(name, variant)
 }
 
-func (pandaTheme) Font(style fyne.TextStyle) fyne.Resource {
+func (zhuTheme) Font(style fyne.TextStyle) fyne.Resource {
 	if style.Monospace {
 		return theme.DefaultTheme().Font(style) // logs ficam na mono padrão
 	}
@@ -81,11 +81,11 @@ func (pandaTheme) Font(style fyne.TextStyle) fyne.Resource {
 	return fontRegular
 }
 
-func (pandaTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
+func (zhuTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
 	return theme.DefaultTheme().Icon(name)
 }
 
-func (pandaTheme) Size(name fyne.ThemeSizeName) float32 {
+func (zhuTheme) Size(name fyne.ThemeSizeName) float32 {
 	switch name {
 	case theme.SizeNamePadding:
 		return 8 // 2× o default: respiro é o que faz parecer Apple

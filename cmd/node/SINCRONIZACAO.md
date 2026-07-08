@@ -15,7 +15,7 @@ os DOIS modos que existem hoje:
 
 ### Conceito
 
-Numa rede P2P real (Bitcoin, e futuramente PANDA/M4), um node novo pergunta
+Numa rede P2P real (Bitcoin, e futuramente Zhu/M4), um node novo pergunta
 ativamente para os peers "qual é o seu tip?" e baixa os blocos que faltam
 (handshake `version`/`verack`, depois `getheaders`). Isso existe porque cada
 node tem sua **própria cópia** da chain guardada em disco (bbolt, no nosso
@@ -86,7 +86,7 @@ altura no banco já alcançou ou passou a que você está minerando, seu
 `mine()` é cancelado na hora — sem esperar você terminar — e você vê:
 
 ```
-📥 [09:15:24] Bob minerou o bloco 46 (+50 PANDA para ele, ⏱ 2.2s) — 3.0s de
+📥 [09:15:24] Bob minerou o bloco 46 (+50 ZHU para ele, ⏱ 2.2s) — 3.0s de
    trabalho descartado, recomeçando no 47
 ```
 

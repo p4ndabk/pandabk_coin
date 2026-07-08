@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"pandabk_coin/internal/params"
+	"zhu/internal/params"
 )
 
 // newTestStore abre um banco de demo em arquivo temporário (WAL exige
@@ -149,7 +149,7 @@ func TestMinerBalanceAndRanking(t *testing.T) {
 
 	reward, blocks, err := s.minerBalance("alice")
 	if err != nil || blocks != 2 || reward != 100*params.CoinUnit {
-		t.Fatalf("alice deveria ter 2 blocos e 100 PANDA: %d blocos, %d, %v", blocks, reward, err)
+		t.Fatalf("alice deveria ter 2 blocos e 100 ZHU: %d blocos, %d, %v", blocks, reward, err)
 	}
 	if _, blocks, _ := s.minerBalance("ninguem"); blocks != 0 {
 		t.Fatalf("minerador inexistente deveria ter 0 blocos, veio %d", blocks)

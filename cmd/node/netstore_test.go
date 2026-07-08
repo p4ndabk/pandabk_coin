@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"pandabk_coin/internal/params"
+	"zhu/internal/params"
 )
 
 // newServedStore sobe um serveRace de teste sobre um demoStore local em

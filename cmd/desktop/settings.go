@@ -13,8 +13,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	"pandabk_coin/internal/node"
-	"pandabk_coin/internal/wallet"
+	"zhu/internal/node"
+	"zhu/internal/wallet"
 )
 
 // confForm são os campos compartilhados entre a tela de primeira vez e a
@@ -95,10 +95,10 @@ func labeled(label string, w fyne.CanvasObject) fyne.CanvasObject {
 
 // ── Primeira vez ────────────────────────────────────────────────────────────
 
-// setupScreen é a pré-configuração do primeiro uso: sem panda.conf salvo,
+// setupScreen é a pré-configuração do primeiro uso: sem zhu.conf salvo,
 // o app pergunta o essencial ANTES de ligar o node.
 func (u *ui) setupScreen() fyne.CanvasObject {
-	title := canvas.NewText("Bem-vindo à PANDA", theme.Color(theme.ColorNameForeground))
+	title := canvas.NewText("Bem-vindo à Zhu", theme.Color(theme.ColorNameForeground))
 	title.TextSize = 32
 	title.FontSource = fontMedium
 	sub := widget.NewLabel("Seu node valida a rede e minera para a sua própria wallet.\nConfigure o básico — dá para mudar depois na aba Ajustes.")
@@ -239,7 +239,7 @@ func (u *ui) settingsTab() fyne.CanvasObject {
 	})
 	save.Importance = widget.HighImportance
 
-	hint := widget.NewLabel("As chaves são as mesmas do panda.conf da linha de comando. O perfil e as regras da rede (tempo por bloco, recompensa) não moram aqui — elas são parte do binário, definidas no build.")
+	hint := widget.NewLabel("As chaves são as mesmas do zhu.conf da linha de comando. O perfil e as regras da rede (tempo por bloco, recompensa) não moram aqui — elas são parte do binário, definidas no build.")
 	hint.Wrapping = fyne.TextWrapWord
 
 	return container.NewVScroll(container.NewPadded(container.NewVBox(

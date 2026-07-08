@@ -12,9 +12,9 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/pow"
+	"zhu/internal/core"
+	"zhu/internal/params"
+	"zhu/internal/pow"
 )
 
 // Harness padrão do M2: chain em arquivo temporário com o perfil de teste
@@ -161,7 +161,7 @@ func TestAcceptValidChainAndSpend(t *testing.T) {
 
 	got, err := h.c.UTXOsByPKH(otherPKH)
 	if err != nil || len(got) != 1 || got[0].Value != 30*params.CoinUnit {
-		t.Fatalf("UTXO do destinatário = %+v (err %v), esperava 30 PANDA", got, err)
+		t.Fatalf("UTXO do destinatário = %+v (err %v), esperava 30 ZHU", got, err)
 	}
 	mine, err := h.c.UTXOsByPKH(h.pkh)
 	if err != nil {
@@ -458,7 +458,7 @@ func TestCustomBuildGenesisFormsOwnNetwork(t *testing.T) {
 
 	// ...mas abrir com regras diferentes é OUTRA rede: erro, não corrupção.
 	other := custom
-	other.Genesis.Message = "PANDA test [spacing=15s]"
+	other.Genesis.Message = "ZHU test [spacing=15s]"
 	if _, err := Open(path, other); !errors.Is(err, ErrBadGenesis) {
 		t.Fatalf("regras diferentes deveriam dar ErrBadGenesis, veio %v", err)
 	}

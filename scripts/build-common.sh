@@ -5,15 +5,15 @@
 #
 # Lê o build.conf da raiz do repo (ou o build.conf.example como fallback)
 # e expõe as funções de empacotamento: cada script de SO monta um pacote
-# completo em dist/<so>/ (binários + panda.conf + instalador + LEIA-ME +
-# SHA256SUMS) e gera o compactado versionado dist/panda-<versão>-<so>.tar.gz
+# completo em dist/<so>/ (binários + zhu.conf + instalador + LEIA-ME +
+# SHA256SUMS) e gera o compactado versionado dist/zhu-<versão>-<so>.tar.gz
 # pronto para mandar para a turma.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # defaults (mesmos do build.conf.example)
-NAME="panda-node"
+NAME="zhu"
 OUTDIR="dist"
 VERSION="dev"
 # regras de consenso do build (vazio = perfil devnet padrão do código)
@@ -47,11 +47,11 @@ fi
 # Regras diferentes mudam o gênesis => o binário forma uma REDE própria.
 LDFLAGS="-s -w -X main.version=$VERSION"
 RULES=""
-[ -n "$SPACING" ] && LDFLAGS="$LDFLAGS -X pandabk_coin/internal/params.buildSpacing=$SPACING" && RULES="$RULES spacing=$SPACING"
-[ -n "$HALVING" ] && LDFLAGS="$LDFLAGS -X pandabk_coin/internal/params.buildHalving=$HALVING" && RULES="$RULES halving=$HALVING"
-[ -n "$SUBSIDY" ] && LDFLAGS="$LDFLAGS -X pandabk_coin/internal/params.buildSubsidy=$SUBSIDY" && RULES="$RULES subsidy=$SUBSIDY"
-[ -n "$RETARGET" ] && LDFLAGS="$LDFLAGS -X pandabk_coin/internal/params.buildRetarget=$RETARGET" && RULES="$RULES retarget=$RETARGET"
-[ -n "$PROFILE" ] && LDFLAGS="$LDFLAGS -X pandabk_coin/internal/node.DefaultProfile=$PROFILE" && RULES="$RULES profile=$PROFILE"
+[ -n "$SPACING" ] && LDFLAGS="$LDFLAGS -X zhu/internal/params.buildSpacing=$SPACING" && RULES="$RULES spacing=$SPACING"
+[ -n "$HALVING" ] && LDFLAGS="$LDFLAGS -X zhu/internal/params.buildHalving=$HALVING" && RULES="$RULES halving=$HALVING"
+[ -n "$SUBSIDY" ] && LDFLAGS="$LDFLAGS -X zhu/internal/params.buildSubsidy=$SUBSIDY" && RULES="$RULES subsidy=$SUBSIDY"
+[ -n "$RETARGET" ] && LDFLAGS="$LDFLAGS -X zhu/internal/params.buildRetarget=$RETARGET" && RULES="$RULES retarget=$RETARGET"
+[ -n "$PROFILE" ] && LDFLAGS="$LDFLAGS -X zhu/internal/node.DefaultProfile=$PROFILE" && RULES="$RULES profile=$PROFILE"
 
 mkdir -p "$ROOT/$OUTDIR"
 
@@ -134,16 +134,16 @@ build_desktop() {
     esac
   fi
   echo "→ desktop $goos/$goarch (cgo via Docker, CC=$cc — a 1ª vez baixa imagem e pacotes)"
-  if ! docker build --build-arg "LIBARCH=$libarch" -t "panda-desktop-cross-$libarch" \
+  if ! docker build --build-arg "LIBARCH=$libarch" -t "zhu-desktop-cross-$libarch" \
       -f "$ROOT/scripts/desktop-cross.Dockerfile" "$ROOT/scripts"; then
     echo "⚠️  imagem de cross-compile falhou — pacote sai sem o desktop $goos/$goarch"
     return 0
   fi
   if ! docker run --rm \
       -v "$ROOT":/src -w /src \
-      -v panda-go-mod:/go/pkg/mod -v panda-go-build:/root/.cache/go-build \
+      -v zhu-go-mod:/go/pkg/mod -v zhu-go-build:/root/.cache/go-build \
       -e CGO_ENABLED=1 -e GOOS="$goos" -e GOARCH="$goarch" -e CC="$cc" \
-      "panda-desktop-cross-$libarch" \
+      "zhu-desktop-cross-$libarch" \
       go build -trimpath -ldflags "$LDFLAGS$extra" \
       -o "/src/$OUTDIR/$PKGLABEL/$name" ./cmd/desktop; then
     echo "⚠️  cross-compile falhou — pacote sai sem o desktop $goos/$goarch"
@@ -151,21 +151,21 @@ build_desktop() {
   fi
 }
 
-# pkg_finish — panda.conf + VERSAO.txt + LEIA-ME + SHA256SUMS + compactado
+# pkg_finish — zhu.conf + VERSAO.txt + LEIA-ME + SHA256SUMS + compactado
 # versionado. Chamar por último, depois de todos os build_*.
 pkg_finish() {
-  cp "$ROOT/panda.conf.example" "$PKGDIR/panda.conf"
+  cp "$ROOT/zhu.conf.example" "$PKGDIR/zhu.conf"
   write_versao
   write_leiame
   write_sums
   make_archive
   echo "📦 pacote:      $OUTDIR/$PKGLABEL/"
-  echo "📦 para enviar: $OUTDIR/panda-$VERSION-$PKGLABEL.$ARCHIVE_EXT"
+  echo "📦 para enviar: $OUTDIR/zhu-$VERSION-$PKGLABEL.$ARCHIVE_EXT"
 }
 
 write_versao() {
   {
-    echo "PANDA Coin — versão $VERSION"
+    echo "Zhu — versão $VERSION"
     [ -n "$RULES" ] && echo "regras de consenso:$RULES"
     echo "build: $(date -u +%Y-%m-%dT%H:%M:%SZ) em $(go env GOOS)/$(go env GOARCH), $(go env GOVERSION)"
     if git -C "$ROOT" rev-parse --short HEAD >/dev/null 2>&1; then
@@ -176,26 +176,26 @@ write_versao() {
 
 write_leiame() {
   local desktop_line="  (o app de janela não veio neste pacote — peça a quem buildou)"
-  if ls "$PKGDIR"/panda-desktop* >/dev/null 2>&1; then
-    desktop_line="  panda-desktop-*       — o mesmo node, com janela (o instalador escolhe)"
+  if ls "$PKGDIR"/zhu-desktop* >/dev/null 2>&1; then
+    desktop_line="  zhu-desktop-*       — o mesmo node, com janela (o instalador escolhe)"
   fi
   cat > "$PKGDIR/LEIA-ME.txt" <<EOF
-PANDA Coin — versão $VERSION
+Zhu — versão $VERSION
 ============================
 
 O que tem aqui:
-  panda-node-*          — o node completo (o instalador escolhe o da sua CPU)
+  zhu-*          — o node completo (o instalador escolhe o da sua CPU)
 $desktop_line
-  panda.conf            — configuração: coloque em peers o endereço de quem te convidou
+  zhu.conf            — configuração: coloque em peers o endereço de quem te convidou
   instalar.*            — prepara o binário certo para a sua máquina
   SHA256SUMS.txt        — para conferir que os arquivos chegaram íntegros
   VERSAO.txt            — versão e regras deste build
 
 Como começar:
   1. rode o instalador   (Linux/macOS: ./instalar.sh | Windows: instalar.bat)
-  2. edite panda.conf    (a linha peers= é a que conecta você na rede)
-  3. ./panda-node run    — pronto: seu node valida e minera
-     ou abra o panda-desktop, se preferir janela
+  2. edite zhu.conf    (a linha peers= é a que conecta você na rede)
+  3. ./zhu run    — pronto: seu node valida e minera
+     ou abra o zhu-desktop, se preferir janela
 
 IMPORTANTE — todos na rede precisam do MESMO build. As regras de consenso
 ficam carimbadas no bloco gênese: binário de outro build forma OUTRA rede
@@ -215,10 +215,10 @@ write_sums() {
   )
 }
 
-# make_archive — compactado com pasta raiz versionada (panda-<v>-<so>/...):
+# make_archive — compactado com pasta raiz versionada (zhu-<v>-<so>/...):
 # copia o pacote para o nome final e comprime (portável entre BSD/GNU tar).
 make_archive() {
-  local base="panda-$VERSION-$PKGLABEL"
+  local base="zhu-$VERSION-$PKGLABEL"
   local staged="$ROOT/$OUTDIR/$base"
   rm -rf "$staged"
   cp -R "$PKGDIR" "$staged"
@@ -239,7 +239,7 @@ write_installer_sh() {
   local mac="$1"
   cat > "$PKGDIR/instalar.sh" <<'EOF'
 #!/bin/sh
-# Prepara o PANDA nesta máquina: escolhe os binários da sua CPU e dá permissão.
+# Prepara o Zhu nesta máquina: escolhe os binários da sua CPU e dá permissão.
 set -e
 cd "$(dirname "$0")"
 case "$(uname -m)" in
@@ -247,21 +247,21 @@ case "$(uname -m)" in
   aarch64|arm64) arch=arm64 ;;
   *) echo "CPU $(uname -m) sem binário neste pacote"; exit 1 ;;
 esac
-cp -f "panda-node-$arch" panda-node
-chmod +x panda-node
-if [ -f "panda-desktop-$arch" ]; then
-  cp -f "panda-desktop-$arch" panda-desktop
-  chmod +x panda-desktop
+cp -f "zhu-$arch" zhu
+chmod +x zhu
+if [ -f "zhu-desktop-$arch" ]; then
+  cp -f "zhu-desktop-$arch" zhu-desktop
+  chmod +x zhu-desktop
 fi
 EOF
   if [ "$mac" = "sim" ]; then
     cat >> "$PKGDIR/instalar.sh" <<'EOF'
 # macOS marca downloads com quarentena; sem isso o Gatekeeper bloqueia
-xattr -d com.apple.quarantine panda-node panda-desktop 2>/dev/null || true
+xattr -d com.apple.quarantine zhu zhu-desktop 2>/dev/null || true
 EOF
   fi
   cat >> "$PKGDIR/instalar.sh" <<'EOF'
-echo "✅ pronto. Edite o panda.conf (linha peers=) e rode:  ./panda-node run"
+echo "✅ pronto. Edite o zhu.conf (linha peers=) e rode:  ./zhu run"
 EOF
   chmod +x "$PKGDIR/instalar.sh"
 }
@@ -270,14 +270,14 @@ EOF
 write_installer_bat() {
   cat > "$PKGDIR/instalar.bat" <<'EOF'
 @echo off
-rem Prepara o PANDA nesta maquina: escolhe o binario da sua CPU.
+rem Prepara o Zhu nesta maquina: escolhe o binario da sua CPU.
 cd /d "%~dp0"
 if "%PROCESSOR_ARCHITECTURE%"=="ARM64" (
-  copy /y panda-node-arm64.exe panda-node.exe >nul
+  copy /y zhu-arm64.exe zhu.exe >nul
 ) else (
-  copy /y panda-node-amd64.exe panda-node.exe >nul
+  copy /y zhu-amd64.exe zhu.exe >nul
 )
-if exist panda-desktop-amd64.exe copy /y panda-desktop-amd64.exe panda-desktop.exe >nul
-echo pronto. Edite o panda.conf (linha peers=) e rode:  panda-node.exe run
+if exist zhu-desktop-amd64.exe copy /y zhu-desktop-amd64.exe zhu-desktop.exe >nul
+echo pronto. Edite o zhu.conf (linha peers=) e rode:  zhu.exe run
 EOF
 }

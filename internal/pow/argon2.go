@@ -1,4 +1,4 @@
-// Package pow implementa o proof of work memory-hard da PANDA: o hash
+// Package pow implementa o proof of work memory-hard da Zhu: o hash
 // Argon2id sobre o header, a aritmética de dificuldade (nBits ↔ target ↔
 // trabalho) e o ajuste periódico de dificuldade. Funções puras.
 // Ver internal/pow/SPEC.md.
@@ -7,10 +7,12 @@ package pow
 import (
 	"golang.org/x/crypto/argon2"
 
-	"pandabk_coin/internal/params"
+	"zhu/internal/params"
 )
 
-// powSalt fixa o domínio do hash de PoW: muda o salt, muda a rede.
+// powSalt fixa o domínio do hash de PoW: muda o salt, muda a rede. É um
+// separador de domínio interno (nunca exibido) — mantido estável no rebrand
+// para não invalidar o gênesis já minerado nem as chains existentes.
 var powSalt = []byte("pandabk/pow/v1")
 
 // PowHash é o hash caro de mineração: Argon2id sobre os 96 bytes do header,

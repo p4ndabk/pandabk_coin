@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sort"
 
-	"pandabk_coin/internal/core"
+	"zhu/internal/core"
 )
 
 // UTXO é a visão mínima que o BuildTx precisa de um output não gasto do

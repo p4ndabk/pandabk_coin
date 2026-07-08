@@ -1,6 +1,6 @@
 package chain
 
-import "pandabk_coin/internal/core"
+import "zhu/internal/core"
 
 // orphanCap limita o pool de órfãos: blocos cujo pai ainda não chegou ficam
 // aqui aguardando (evict FIFO quando enche) — memória limitada mesmo se um

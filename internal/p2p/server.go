@@ -14,10 +14,10 @@ import (
 
 	xproxy "golang.org/x/net/proxy"
 
-	"pandabk_coin/internal/chain"
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/mempool"
-	"pandabk_coin/internal/params"
+	"zhu/internal/chain"
+	"zhu/internal/core"
+	"zhu/internal/mempool"
+	"zhu/internal/params"
 )
 
 // Config do servidor p2p. Listen vazio = node outbound-only (atrás de NAT,
@@ -50,7 +50,7 @@ type Server struct {
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
 	ln        net.Listener
-	advertise string // endereço anunciado no handshake ("" se outbound-only)
+	advertise string               // endereço anunciado no handshake ("" se outbound-only)
 	proxyDial xproxy.ContextDialer // != nil quando cfg.Proxy está setado
 
 	mu        sync.Mutex

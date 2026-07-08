@@ -17,7 +17,7 @@ import (
 	"math/big"
 	"time"
 
-	"pandabk_coin/internal/pow"
+	"zhu/internal/pow"
 )
 
 // reconcile compara a chain local com a do peer e adota a mais pesada a

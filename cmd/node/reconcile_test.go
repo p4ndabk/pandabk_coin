@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/pow"
+	"zhu/internal/params"
+	"zhu/internal/pow"
 )
 
 // bits usados nos testes: heavyBits tem MENOS trabalho médio por tentativa

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"pandabk_coin/internal/chain"
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/pow"
-	"pandabk_coin/internal/wallet"
+	"zhu/internal/chain"
+	"zhu/internal/core"
+	"zhu/internal/params"
+	"zhu/internal/pow"
+	"zhu/internal/wallet"
 )
 
 // RPC JSON local: POST /rpc {"method": "...", "params": {...}} →
@@ -96,7 +96,7 @@ type infoResult struct {
 	Bits        string  `json:"bits"`
 	Difficulty  float64 `json:"difficulty"`
 	SpacingSecs int64   `json:"target_spacing_seconds"`
-	RewardPanda string  `json:"reward_panda"`
+	RewardZhu   string  `json:"reward_zhu"`
 	NextHalving uint64  `json:"next_halving"`
 	Peers       int     `json:"peers"`
 	Mempool     int     `json:"mempool"`
@@ -116,7 +116,7 @@ func (n *Node) rpcGetInfo() (any, error) {
 		Bits:        fmt.Sprintf("%08x", tip.Bits),
 		Difficulty:  pow.Difficulty(tip.Bits, n.p),
 		SpacingSecs: int64(n.p.TargetSpacing / time.Second),
-		RewardPanda: FormatPanda(n.p.BlockSubsidy(height + 1)),
+		RewardZhu:   FormatZhu(n.p.BlockSubsidy(height + 1)),
 		NextHalving: (height/n.p.HalvingInterval + 1) * n.p.HalvingInterval,
 		Peers:       n.srv.PeerCount(),
 		Mempool:     n.mp.Len(),
@@ -145,8 +145,8 @@ type txInResult struct {
 }
 
 type txOutResult struct {
-	ValuePanda string `json:"value_panda"`
-	Address    string `json:"address"`
+	ValueZhu string `json:"value_zhu"`
+	Address  string `json:"address"`
 }
 
 type txResult struct {
@@ -227,8 +227,8 @@ func (n *Node) rpcGetBlock(raw json.RawMessage) (any, error) {
 		}
 		for _, out := range tx.Outs {
 			tr.Outs = append(tr.Outs, txOutResult{
-				ValuePanda: FormatPanda(out.Value),
-				Address:    core.AddressFromPKH(out.PubKeyHash),
+				ValueZhu: FormatZhu(out.Value),
+				Address:  core.AddressFromPKH(out.PubKeyHash),
 			})
 		}
 		res.Txs = append(res.Txs, tr)
@@ -239,17 +239,17 @@ func (n *Node) rpcGetBlock(raw json.RawMessage) (any, error) {
 // ── getstats / getrecentblocks / getmempool (o painel mempool.space-de-casa) ─
 
 type statsResult struct {
-	AvgBlockSecs    float64 `json:"avg_block_seconds"` // média dos últimos até 20 intervalos (0 = sem dados)
-	AvgWindow       int     `json:"avg_window"`        // quantos intervalos entraram na média
-	TargetSecs      int64   `json:"target_seconds"`
-	Difficulty      float64 `json:"difficulty"`
-	NextRetarget    uint64  `json:"next_retarget_height"`
-	BlocksToRetgt   uint64  `json:"blocks_to_retarget"`
-	RetargetFactor  float64 `json:"retarget_factor"` // estimativa: >1 dificuldade sobe (0 = sem dados)
-	NextHalving     uint64  `json:"next_halving_height"`
-	BlocksToHalve   uint64  `json:"blocks_to_halving"`
-	RewardPanda     string  `json:"reward_panda"`
-	NextRewardPanda string  `json:"next_reward_panda"`
+	AvgBlockSecs   float64 `json:"avg_block_seconds"` // média dos últimos até 20 intervalos (0 = sem dados)
+	AvgWindow      int     `json:"avg_window"`        // quantos intervalos entraram na média
+	TargetSecs     int64   `json:"target_seconds"`
+	Difficulty     float64 `json:"difficulty"`
+	NextRetarget   uint64  `json:"next_retarget_height"`
+	BlocksToRetgt  uint64  `json:"blocks_to_retarget"`
+	RetargetFactor float64 `json:"retarget_factor"` // estimativa: >1 dificuldade sobe (0 = sem dados)
+	NextHalving    uint64  `json:"next_halving_height"`
+	BlocksToHalve  uint64  `json:"blocks_to_halving"`
+	RewardZhu      string  `json:"reward_zhu"`
+	NextRewardZhu  string  `json:"next_reward_zhu"`
 }
 
 func (n *Node) rpcGetStats() (any, error) {
@@ -258,10 +258,10 @@ func (n *Node) rpcGetStats() (any, error) {
 		TargetSecs:  int64(n.p.TargetSpacing / time.Second),
 		Difficulty:  pow.Difficulty(tip.Bits, n.p),
 		NextHalving: (height/n.p.HalvingInterval + 1) * n.p.HalvingInterval,
-		RewardPanda: FormatPanda(n.p.BlockSubsidy(height + 1)),
+		RewardZhu:   FormatZhu(n.p.BlockSubsidy(height + 1)),
 	}
 	s.BlocksToHalve = s.NextHalving - height
-	s.NextRewardPanda = FormatPanda(n.p.BlockSubsidy(s.NextHalving))
+	s.NextRewardZhu = FormatZhu(n.p.BlockSubsidy(s.NextHalving))
 	s.NextRetarget = (height/n.p.RetargetInterval + 1) * n.p.RetargetInterval
 	s.BlocksToRetgt = s.NextRetarget - height
 
@@ -365,11 +365,11 @@ func (n *Node) rpcGetRecentBlocks(raw json.RawMessage) (any, error) {
 }
 
 type mempoolTx struct {
-	TxID       string  `json:"txid"`
-	Size       int     `json:"size"`
-	ValuePanda string  `json:"value_panda"` // Σ outputs — o que a tx movimenta
-	FeePanda   string  `json:"fee_panda"`
-	FeeRate    float64 `json:"fee_rate"`
+	TxID     string  `json:"txid"`
+	Size     int     `json:"size"`
+	ValueZhu string  `json:"value_zhu"` // Σ outputs — o que a tx movimenta
+	FeeZhu   string  `json:"fee_zhu"`
+	FeeRate  float64 `json:"fee_rate"`
 }
 
 func (n *Node) rpcGetMempool() (any, error) {
@@ -377,11 +377,11 @@ func (n *Node) rpcGetMempool() (any, error) {
 	out := make([]mempoolTx, 0, len(entries))
 	for _, e := range entries {
 		out = append(out, mempoolTx{
-			TxID:       hex.EncodeToString(e.TxID[:]),
-			Size:       e.Size,
-			ValuePanda: FormatPanda(e.Value),
-			FeePanda:   FormatPanda(e.Fee),
-			FeeRate:    e.FeeRate,
+			TxID:     hex.EncodeToString(e.TxID[:]),
+			Size:     e.Size,
+			ValueZhu: FormatZhu(e.Value),
+			FeeZhu:   FormatZhu(e.Fee),
+			FeeRate:  e.FeeRate,
 		})
 	}
 	return out, nil
@@ -401,8 +401,8 @@ type activityEntry struct {
 	Time         int64  `json:"time"`
 	TxID         string `json:"txid"`
 	Direction    string `json:"direction"` // "in" (entrada) | "out" (saída)
-	AmountPanda  string `json:"amount_panda"`
-	FeePanda     string `json:"fee_panda,omitempty"` // só em saídas
+	AmountZhu    string `json:"amount_zhu"`
+	FeeZhu       string `json:"fee_zhu,omitempty"` // só em saídas
 	Coinbase     bool   `json:"coinbase"`
 	Counterparty string `json:"counterparty,omitempty"` // de quem veio / para quem foi
 }
@@ -501,9 +501,9 @@ func (n *Node) rpcGetActivity(raw json.RawMessage) (any, error) {
 				// saída: o valor é o que foi para os outros (o troco volta);
 				// a taxa aparece separada, não escondida no valor.
 				e.Direction = "out"
-				e.AmountPanda = FormatPanda(totalOut - recv)
+				e.AmountZhu = FormatZhu(totalOut - recv)
 				if totalIn > totalOut {
-					e.FeePanda = FormatPanda(totalIn - totalOut)
+					e.FeeZhu = FormatZhu(totalIn - totalOut)
 				}
 				for _, o := range tx.Outs {
 					if o.PubKeyHash != pkh {
@@ -513,7 +513,7 @@ func (n *Node) rpcGetActivity(raw json.RawMessage) (any, error) {
 				}
 			} else {
 				e.Direction = "in"
-				e.AmountPanda = FormatPanda(recv)
+				e.AmountZhu = FormatZhu(recv)
 				if !e.Coinbase && len(tx.Ins) > 0 {
 					if s, ok := spent[tx.Ins[0].Prev]; ok {
 						e.Counterparty = core.AddressFromPKH(s.PKH)
@@ -539,18 +539,18 @@ type balanceParams struct {
 }
 
 type balanceResult struct {
-	Address        string `json:"address"`
-	Balance        uint64 `json:"balance"`
-	BalancePanda   string `json:"balance_panda"`
-	Spendable      uint64 `json:"spendable"`
-	SpendablePanda string `json:"spendable_panda"`
-	UTXOs          int    `json:"utxos"`
+	Address      string `json:"address"`
+	Balance      uint64 `json:"balance"`
+	BalanceZhu   string `json:"balance_zhu"`
+	Spendable    uint64 `json:"spendable"`
+	SpendableZhu string `json:"spendable_zhu"`
+	UTXOs        int    `json:"utxos"`
 }
 
 func (n *Node) resolvePKH(address string) ([20]byte, string, error) {
 	if address == "" {
 		if n.wallet == nil {
-			return [20]byte{}, "", errors.New("sem wallet no datadir e sem address nos params — rode `node wallet new` ou informe address")
+			return [20]byte{}, "", errors.New("sem wallet no datadir e sem address nos params — rode `zhu wallet new` ou informe address")
 		}
 		return n.wallet.PubKeyHash(), n.wallet.Address(), nil
 	}
@@ -585,12 +585,12 @@ func (n *Node) rpcGetBalance(raw json.RawMessage) (any, error) {
 		}
 	}
 	return balanceResult{
-		Address:        addr,
-		Balance:        total,
-		BalancePanda:   FormatPanda(total),
-		Spendable:      spendable,
-		SpendablePanda: FormatPanda(spendable),
-		UTXOs:          len(utxos),
+		Address:      addr,
+		Balance:      total,
+		BalanceZhu:   FormatZhu(total),
+		Spendable:    spendable,
+		SpendableZhu: FormatZhu(spendable),
+		UTXOs:        len(utxos),
 	}, nil
 }
 
@@ -656,13 +656,13 @@ func (n *Node) rpcSendRawTx(raw json.RawMessage) (any, error) {
 
 type sendParams struct {
 	To      string `json:"to"`
-	Amount  string `json:"amount"`             // em PANDA, ex.: "1.5"
+	Amount  string `json:"amount"`             // em ZHU, ex.: "1.5"
 	FeeRate uint64 `json:"fee_rate,omitempty"` // subunidades/byte (default 1)
 }
 
 func (n *Node) rpcSendToAddress(raw json.RawMessage) (any, error) {
 	if n.wallet == nil {
-		return nil, errors.New("sem wallet no datadir — rode `node wallet new` primeiro")
+		return nil, errors.New("sem wallet no datadir — rode `zhu wallet new` primeiro")
 	}
 	var p sendParams
 	if err := json.Unmarshal(raw, &p); err != nil {
@@ -723,7 +723,7 @@ func isSpendable(coinbase bool, born, tipHeight uint64, p params.Params) bool {
 
 // ── unidades ────────────────────────────────────────────────────────────────
 
-// ParseAmount converte "1.5" (PANDA) para subunidades (1 PANDA = 1e8).
+// ParseAmount converte "1.5" (ZHU) para subunidades (1 ZHU = 1e8).
 func ParseAmount(s string) (uint64, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -754,9 +754,9 @@ func ParseAmount(s string) (uint64, error) {
 	return whole*params.CoinUnit + frac, nil
 }
 
-// FormatPanda formata subunidades como PANDA com até 8 casas (sem zeros à
+// FormatZhu formata subunidades como ZHU com até 8 casas (sem zeros à
 // direita desnecessários).
-func FormatPanda(v uint64) string {
+func FormatZhu(v uint64) string {
 	whole := v / params.CoinUnit
 	frac := v % params.CoinUnit
 	if frac == 0 {

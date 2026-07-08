@@ -1,6 +1,6 @@
 # Spec: wallet — chaves, endereços e construção de transações
 
-> Domínio do node PANDA (ver [PLAN.md](../../PLAN.md)). Depende de `core` e
+> Domínio do node Zhu (ver [PLAN.md](../../PLAN.md)). Depende de `core` e
 > `params`.
 
 ## Conceito

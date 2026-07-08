@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"pandabk_coin/internal/core"
+	"zhu/internal/core"
 )
 
 func newTestWallet(t *testing.T) (*Wallet, string) {

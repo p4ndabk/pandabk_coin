@@ -1,6 +1,6 @@
 # O banco de dados do node — `chain.db` por dentro
 
-O banco do node é o arquivo único `~/.panda/chain.db`, no formato **bbolt**
+O banco do node é o arquivo único `~/.zhu/chain.db`, no formato **bbolt**
 — um banco chave→valor embutido, escrito em Go puro. Não existe servidor
 SQL rodando ao lado: o banco é uma biblioteca dentro do próprio node, e o
 arquivo é tudo. Pensa nele como um armário com **6 gavetas** (buckets),
@@ -111,8 +111,8 @@ práticas:
 Com o node **parado**:
 
 ```sh
-go run go.etcd.io/bbolt/cmd/bbolt buckets ~/.panda/chain.db   # lista as gavetas
-go run go.etcd.io/bbolt/cmd/bbolt stats  ~/.panda/chain.db    # tamanhos e páginas
+go run go.etcd.io/bbolt/cmd/bbolt buckets ~/.zhu/chain.db   # lista as gavetas
+go run go.etcd.io/bbolt/cmd/bbolt stats  ~/.zhu/chain.db    # tamanhos e páginas
 ```
 
 Mas a janela amigável é a que o próprio node oferece: a aba **Blocos** do

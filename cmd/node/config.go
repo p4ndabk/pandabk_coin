@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"pandabk_coin/internal/node"
+	"zhu/internal/node"
 )
 
 // applyConfig é o node.ApplyConfigFile com o comportamento de CLI: erro de

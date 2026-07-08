@@ -1,11 +1,11 @@
-// O binário node é o full node PANDA. Nesta fase (M1.6) ele expõe a bancada
-// de mineração powdemo — proof of work real (Argon2id) com retarget,
-// recompensa simulada e uma corrida entre vários mineradores: na mesma
-// máquina via SQLite compartilhado (-db) ou em máquinas diferentes via TCP
-// (-listen/-peer) — além dos comandos de consulta blocks e ranking. Ver
-// cmd/node/SINCRONIZACAO.md para como a sincronização funciona nos dois
-// modos. Os subcomandos definitivos (run, wallet, send, ...) chegam nos
-// milestones seguintes; ver internal/node/SPEC.md.
+// O binário zhu é o full node da rede Zhu — uma blockchain proof-of-work
+// memory-hard (Argon2id) desenhada para uma obsessão só: um node em cada
+// casa. Roda como arquivo estático em qualquer máquina, valida tudo por
+// conta própria e minera por padrão (1 worker, ~64 MiB). Além do node, o
+// binário guarda a bancada didática `powdemo` — onde se aprende PoW de
+// verdade — e os comandos de consulta `blocks`/`ranking`. Os subcomandos do
+// node de verdade (run, wallet, send, ...) e a arquitetura estão em
+// internal/node/SPEC.md.
 package main
 
 import (
@@ -17,13 +17,16 @@ import (
 // -ldflags "-X main.version=...", lida do build.conf do desenvolvedor.
 var version = "dev"
 
-// banner é a cara do node no terminal — aparece no help e na subida do run.
+// banner é a cara do Zhu no terminal — aparece no help e na subida do run.
+// O mascote é calmo, econômico e teimoso: fala pouco, e sobre a rede.
 const banner = `
-                        __                      __
- .-----.---.-.-----.--|  .---.-.   .----.-----|__.-----.
- |  _  |  _  |     |  _  |  _  |   |  __|  _  |  |     |
- |   __|___._|__|__|_____|___._|   |____|_____|__|__|__|
- |__|                            🐼  um node em cada casa
+       .__                           __                       __    
+_______|  |__  __ __    ____   _____/  |___  _  _____________|  | __
+\___   /  |  \|  |  \  /    \_/ __ \   __\ \/ \/ /  _ \_  __ \  |/ /
+ /    /|   Y  \  |  / |   |  \  ___/|  |  \     (  <_> )  | \/    < 
+/_____ \___|  /____/  |___|  /\___  >__|   \/\_/ \____/|__|  |__|_ \
+      \/    \/             \/     \/                              \/   竹 ₍ᵔ.˛.ᵔ₎
+mais um broto. para a rede.
 `
 
 func main() {
@@ -52,8 +55,10 @@ func main() {
 		runGenesis(os.Args[2:])
 	case "wallet":
 		runWallet(os.Args[2:])
+	case "zen":
+		runZen()
 	case "version", "-v", "--version":
-		fmt.Printf("panda-node %s\n", version)
+		fmt.Printf("zhu %s\n", version)
 	case "help", "-h", "--help":
 		if len(os.Args) > 2 {
 			helpFor(os.Args[2])
@@ -61,7 +66,7 @@ func main() {
 			usage()
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "subcomando desconhecido: %q\n\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "Zhu não conhece esse comando: %q\n\n", os.Args[1])
 		usage()
 		os.Exit(2)
 	}
@@ -70,71 +75,75 @@ func main() {
 func usage() {
 	fmt.Print(banner)
 	fmt.Printf(`
- panda-node %s — o full node da PANDA Coin
+ zhu %s — o full node da rede Zhu
+
+ Rodar um node é o ato que descentraliza a rede. Este binário é a sua
+ lanterna: liga, valida tudo sozinho e acende uma luz ao lado das outras.
 
 USO
-  panda-node <comando> [flags]
-  panda-node help <comando>      flags de um comando (idem: <comando> -h)
+  zhu <comando> [flags]
+  zhu help <comando>       flags de um comando (idem: <comando> -h)
 
 O node de verdade:
-  run       sobe o full node: chain validada (bbolt), mempool, rede p2p e
+  run       acende a lanterna: chain validada (bbolt), mempool, rede p2p e
             mineração LIGADA por padrão (1 worker; -mine=false desliga).
             A coinbase paga a wallet do datadir (criada no primeiro run).
   info      altura/tip/peers/mempool/hashrate do node em execução (via RPC)
   balance   saldo de um endereço (default: a wallet do node)
-  send      envia PANDA: node send -to P... -amount 1.5
-  block     explora um bloco por dentro: node block 42 | node block <hash>
+  send      envia ZHU: zhu send -to P... -amount 1.5
+  block     explora um bloco por dentro: zhu block 42 | zhu block <hash>
             (vazio = a ponta) — coinbase, transações, valores e destinos
   wallet    new: gera chave + 12 palavras de backup (BIP39); restore: recupera
             a carteira só com as palavras; words: reexibe as palavras;
             address: reexibe o endereço
   genesis   (dev) minera o bloco 0 de um perfil
   version   versão do binário (definida no build.conf de quem compilou)
+  zen       os princípios da rede, uma frase por vez
 
-Bancada didática (a demo que precedeu o node):
+Bancada didática (onde se aprende PoW de verdade):
   powdemo   corrida de mineradores com PoW real e recompensa simulada
   blocks    lista os últimos blocos de uma corrida (-db ou -peer)
   ranking   placar por minerador de uma corrida (-db ou -peer)
 
 Exemplo — dois nodes de verdade na mesma máquina:
-  node run -profile devnet -datadir ~/.panda/n1 -listen :9551 -rpc 127.0.0.1:8551
-  node run -profile devnet -datadir ~/.panda/n2 -listen :9552 -rpc 127.0.0.1:8552 -peers 127.0.0.1:9551
-  node info    -rpc 127.0.0.1:8552      # alturas convergem => sync ok
-  node balance -rpc 127.0.0.1:8551      # cresce conforme coinbases maturam
-  node send    -rpc 127.0.0.1:8551 -to P... -amount 1.5
+  zhu run -profile devnet -datadir ~/.zhu/n1 -listen :9551 -rpc 127.0.0.1:8551
+  zhu run -profile devnet -datadir ~/.zhu/n2 -listen :9552 -rpc 127.0.0.1:8552 -peers 127.0.0.1:9551
+  zhu info    -rpc 127.0.0.1:8552      # alturas convergem => sync ok
+  zhu balance -rpc 127.0.0.1:8551      # cresce conforme coinbases maturam
+  zhu send    -rpc 127.0.0.1:8551 -to P... -amount 1.5
 
 Configuração por arquivo (menos flags repetidos):
-  copie panda.conf.example para panda.conf no diretório onde roda o node —
+  copie zhu.conf.example para zhu.conf no diretório onde roda o node —
   powdemo/blocks/ranking o encontram sozinhos (ou use -config caminho).
   As chaves são os nomes dos flags (name=David, db=david.db, listen=:9551,
   peer=..., spacing=1m, zeros=10, ...); flag na linha de comando vence.
-  Com o arquivo no lugar, "node powdemo" e "node blocks" bastam.
+  Com o arquivo no lugar, "zhu powdemo" e "zhu blocks" bastam.
 
 Exemplos:
-  node powdemo                                  # 3 blocos, perfil devnet (64 MiB/hash)
-  node powdemo -blocks 0 -spacing 10m           # madrugada estilo Bitcoin: blocos de ~10min
-  node powdemo -zeros 9 -workers 2              # mais difícil, 2 cores (+64 MiB de RAM)
-  node powdemo -profile test                    # Argon2 de 1 MiB: veja a diferença de H/s
+  zhu powdemo                                  # 3 blocos, perfil devnet (64 MiB/hash)
+  zhu powdemo -blocks 0 -spacing 10m           # madrugada estilo Bitcoin: blocos de ~10min
+  zhu powdemo -zeros 9 -workers 2              # mais difícil, 2 cores (+64 MiB de RAM)
+  zhu powdemo -profile test                    # Argon2 de 1 MiB: veja a diferença de H/s
 
   # corrida de mineradores NA MESMA MÁQUINA (um terminal por minerador, mesmo -db):
-  node powdemo -db mineracao.db -name Alice -blocks 0 -spacing 1m -zeros 10
-  node powdemo -db mineracao.db -name Bob   -blocks 0
-  node blocks  -db mineracao.db -last 10
-  node ranking -db mineracao.db
+  zhu powdemo -db mineracao.db -name Alice -blocks 0 -spacing 1m -zeros 10
+  zhu powdemo -db mineracao.db -name Bob   -blocks 0
+  zhu blocks  -db mineracao.db -last 10
+  zhu ranking -db mineracao.db
 
-  # corrida entre DOIS MACS na mesma rede (ver SINCRONIZACAO.md):
-  # no Mac A (abre a corrida e expõe pra rede):
-  node powdemo -db alice.db -name Alice -listen :9551 -blocks 0 -spacing 1m -zeros 10
-  # no Mac B (SEMPRE com -db próprio — ele sincroniza uma cópia completa,
-  # não fica refém do Mac A continuar ligado; descubra o IP do Mac A com
+  # corrida entre DUAS MÁQUINAS na mesma rede (ver SINCRONIZACAO.md):
+  # na máquina A (abre a corrida e expõe pra rede):
+  zhu powdemo -db alice.db -name Alice -listen :9551 -blocks 0 -spacing 1m -zeros 10
+  # na máquina B (SEMPRE com -db próprio — ela sincroniza uma cópia completa,
+  # não fica refém da máquina A continuar ligada; descubra o IP da A com
   # "ipconfig getifaddr en0"):
-  node powdemo -db bob.db -peer 192.168.1.10:9551 -name Bob -blocks 0
-  node blocks  -db bob.db -last 10
+  zhu powdemo -db bob.db -peer 192.168.1.10:9551 -name Bob -blocks 0
+  zhu blocks  -db bob.db -last 10
 
-  # Bob agora tem uma cópia completa e pode servir um TERCEIRO Mac, mesmo
-  # que o Mac A da Alice já tenha sido desligado:
-  node powdemo -db bob.db -peer 192.168.1.10:9551 -listen :9552 -name Bob -blocks 0
-  node powdemo -db carol.db -peer 192.168.1.11:9552 -name Carol -blocks 0
+  # Bob agora tem uma cópia completa e pode servir uma TERCEIRA máquina, mesmo
+  # que a máquina A da Alice já tenha sido desligada:
+  zhu powdemo -db bob.db -peer 192.168.1.10:9551 -listen :9552 -name Bob -blocks 0
+  zhu powdemo -db carol.db -peer 192.168.1.11:9552 -name Carol -blocks 0
 `, version)
 }
 
@@ -161,15 +170,32 @@ func helpFor(cmd string) {
 	case "genesis":
 		runGenesis([]string{"-h"})
 	case "wallet":
-		fmt.Print(`uso: panda-node wallet <subcomando> [-file wallet.json | -datadir DIR]
+		fmt.Print(`uso: zhu wallet <subcomando> [-file wallet.json | -datadir DIR]
   new       gera chave nova + 12 palavras de backup (nunca sobrescreve)
-  restore   recupera a carteira: wallet restore palavra1 ... palavra12
+  restore   recupera a carteira: zhu wallet restore palavra1 ... palavra12
   words     reexibe as 12 palavras da wallet (só para os SEUS olhos)
   address   reexibe o endereço (alias: show)
 `)
 	default:
-		fmt.Fprintf(os.Stderr, "comando desconhecido: %q\n\n", cmd)
+		fmt.Fprintf(os.Stderr, "Zhu não conhece esse comando: %q\n\n", cmd)
 		usage()
 		os.Exit(2)
+	}
+}
+
+// runZen é o easter egg da marca: o Zhu cospe os princípios da rede, um por
+// vez. Sereno e teimoso num assunto só — descentralização.
+func runZen() {
+	zen := []string{
+		"Rodar um node é o ato que descentraliza a rede.",
+		"A segurança vem da quantidade de participantes, não da potência de cada um.",
+		"O gargalo é RAM comum, não hardware especializado. Sem corrida armamentista.",
+		"Ninguém concede sua luz, ninguém a apaga.",
+		"Claro antes de esperto. Coletivo, nunca messiânico.",
+		"Nunca uma promessa de preço — só tecnologia que qualquer casa consegue rodar.",
+		"Se cada vizinho acender a sua lanterna, nenhuma escuridão apaga a rede toda.",
+	}
+	for _, line := range zen {
+		fmt.Printf("%s\n", line)
 	}
 }

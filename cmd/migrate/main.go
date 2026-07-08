@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"github.com/go-gormigrate/gormigrate/v2"
-	"pandabk_coin/internal/config"
-	"pandabk_coin/internal/database"
-	"pandabk_coin/internal/database/migrations"
+	"zhu/internal/config"
+	"zhu/internal/database"
+	"zhu/internal/database/migrations"
 )
 
 func main() {

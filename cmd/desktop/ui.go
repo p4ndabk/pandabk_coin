@@ -14,8 +14,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	"pandabk_coin/internal/node"
-	"pandabk_coin/internal/rpcclient"
+	"zhu/internal/node"
+	"zhu/internal/rpcclient"
 )
 
 // ui é o estado da janela: de que node ela fala (externo via RPC ou
@@ -69,7 +69,7 @@ type infoResp struct {
 	Height      uint64  `json:"height"`
 	Difficulty  float64 `json:"difficulty"`
 	SpacingSecs int64   `json:"target_spacing_seconds"`
-	RewardPanda string  `json:"reward_panda"`
+	RewardZhu   string  `json:"reward_zhu"`
 	NextHalving uint64  `json:"next_halving"`
 	Peers       int     `json:"peers"`
 	Mempool     int     `json:"mempool"`
@@ -79,10 +79,10 @@ type infoResp struct {
 }
 
 type balanceResp struct {
-	Address        string `json:"address"`
-	BalancePanda   string `json:"balance_panda"`
-	SpendablePanda string `json:"spendable_panda"`
-	UTXOs          int    `json:"utxos"`
+	Address      string `json:"address"`
+	BalanceZhu   string `json:"balance_zhu"`
+	SpendableZhu string `json:"spendable_zhu"`
+	UTXOs        int    `json:"utxos"`
 }
 
 type statsResp struct {
@@ -92,8 +92,8 @@ type statsResp struct {
 	BlocksToRetgt  uint64  `json:"blocks_to_retarget"`
 	RetargetFactor float64 `json:"retarget_factor"`
 	BlocksToHalve  uint64  `json:"blocks_to_halving"`
-	RewardPanda    string  `json:"reward_panda"`
-	NextReward     string  `json:"next_reward_panda"`
+	RewardZhu      string  `json:"reward_zhu"`
+	NextReward     string  `json:"next_reward_zhu"`
 }
 
 type recentResp struct {
@@ -105,19 +105,19 @@ type recentResp struct {
 }
 
 type mempoolResp struct {
-	TxID       string  `json:"txid"`
-	Size       int     `json:"size"`
-	ValuePanda string  `json:"value_panda"`
-	FeePanda   string  `json:"fee_panda"`
-	FeeRate    float64 `json:"fee_rate"`
+	TxID     string  `json:"txid"`
+	Size     int     `json:"size"`
+	ValueZhu string  `json:"value_zhu"`
+	FeeZhu   string  `json:"fee_zhu"`
+	FeeRate  float64 `json:"fee_rate"`
 }
 
 type activityResp struct {
 	Height       uint64 `json:"height"`
 	Time         int64  `json:"time"`
 	Direction    string `json:"direction"`
-	AmountPanda  string `json:"amount_panda"`
-	FeePanda     string `json:"fee_panda"`
+	AmountZhu    string `json:"amount_zhu"`
+	FeeZhu       string `json:"fee_zhu"`
 	Coinbase     bool   `json:"coinbase"`
 	Counterparty string `json:"counterparty"`
 }
@@ -255,9 +255,9 @@ func (u *ui) refresh() {
 		}
 		u.consensusLine.SetText(consensusText(info))
 		if balErr == nil {
-			u.setCard("balance", bal.BalancePanda)
-			u.walletTotal.Text = bal.BalancePanda + " PANDA"
-			u.walletSpend.Text = bal.SpendablePanda + " PANDA gastáveis agora"
+			u.setCard("balance", bal.BalanceZhu)
+			u.walletTotal.Text = bal.BalanceZhu + " ZHU"
+			u.walletSpend.Text = bal.SpendableZhu + " ZHU gastáveis agora"
 			u.walletTotal.Refresh()
 			u.walletSpend.Refresh()
 			u.walletUTXOs.SetText(formatUint(uint64(bal.UTXOs)) + " UTXOs — moedas de mineração maturam em 10 blocos")
@@ -299,7 +299,7 @@ func (u *ui) applyStats(st statsResp) {
 		u.setCardSub("retarget", "BLOCOS (SEM DADOS AINDA)")
 	}
 	u.setCard("halving", fmt.Sprintf("em %d", st.BlocksToHalve))
-	u.setCardSub("halving", fmt.Sprintf("RECOMPENSA %s → %s PANDA", st.RewardPanda, st.NextReward))
+	u.setCardSub("halving", fmt.Sprintf("RECOMPENSA %s → %s ZHU", st.RewardZhu, st.NextReward))
 }
 
 // reloadActs busca a página atual do extrato (filtro + offset) e atualiza a

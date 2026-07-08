@@ -13,8 +13,8 @@ package migrations
 
 import (
 	"github.com/go-gormigrate/gormigrate/v2"
-	"pandabk_coin/internal/user"
 	"gorm.io/gorm"
+	"zhu/internal/user"
 )
 
 var All = []*gormigrate.Migration{

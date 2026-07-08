@@ -4,8 +4,8 @@ import (
 	"errors"
 	"math/big"
 
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/params"
+	"zhu/internal/core"
+	"zhu/internal/params"
 )
 
 // Dificuldade em três formas: nBits (uint32 compacto, formato do Bitcoin,

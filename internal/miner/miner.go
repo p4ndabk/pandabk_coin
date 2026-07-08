@@ -12,11 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"pandabk_coin/internal/chain"
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/mempool"
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/pow"
+	"zhu/internal/chain"
+	"zhu/internal/core"
+	"zhu/internal/mempool"
+	"zhu/internal/params"
+	"zhu/internal/pow"
 )
 
 // templateTTL: mesmo sem novo tip, o template é remontado periodicamente

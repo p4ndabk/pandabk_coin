@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"pandabk_coin/internal/node"
-	"pandabk_coin/internal/rpcclient"
+	"zhu/internal/node"
+	"zhu/internal/rpcclient"
 )
 
 // runRun é o `node run`: o full node de verdade (M5) — chain validada em
@@ -18,8 +18,8 @@ import (
 func runRun(args []string) {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	cfg, peersCSV := node.RegisterFlags(fs)
-	peerSingle := fs.String("peer", "", "alias de -peers para um único peer (mesma chave do panda.conf da demo)")
-	configPath := fs.String("config", "", "arquivo de configuração chave=valor (default: panda.conf, se existir)")
+	peerSingle := fs.String("peer", "", "alias de -peers para um único peer (mesma chave do zhu.conf da demo)")
+	configPath := fs.String("config", "", "arquivo de configuração chave=valor (default: zhu.conf, se existir)")
 	fs.Parse(args)
 	applyConfig(fs, *configPath)
 	node.FinishFlags(cfg, *peersCSV)
@@ -49,7 +49,7 @@ func runRun(args []string) {
 	height, diff, subsidy := n.ChainStatus()
 	fmt.Print(banner)
 	fmt.Printf(`
- PANDA node no ar (versão %s)
+ 🏮 Lanterna acesa. — Zhu no ar (versão %s)
 
    perfil       %s
    datadir      %s
@@ -57,23 +57,24 @@ func runRun(args []string) {
    rpc          %s   (info/balance/send falam aqui)
    mineração    %s
    consenso     1 bloco a cada %s | retarget a cada %d blocos | halving a cada %d
-   recompensa   %s PANDA pelo próximo bloco
+   recompensa   %s ZHU pelo próximo bloco
    chain        altura %d, dificuldade %.2f
 
 Ctrl+C para encerrar com segurança.
 
 `, version, cfg.Profile, cfg.DataDir, listen, n.RPCAddr(), mining,
 		p.TargetSpacing, p.RetargetInterval, p.HalvingInterval,
-		node.FormatPanda(subsidy), height, diff)
+		node.FormatZhu(subsidy), height, diff)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	<-ctx.Done()
-	fmt.Println("\nencerrando (p2p → miner → banco)...")
+	fmt.Println("\n🏮 Apagando a lanterna com cuidado (p2p → miner → banco)...")
 	if err := n.Stop(); err != nil {
 		fmt.Fprintf(os.Stderr, "encerrando: %v\n", err)
 		os.Exit(1)
 	}
+	fmt.Println("Até a próxima, vizinho.")
 }
 
 // ── cliente RPC dos subcomandos (internal/rpcclient, compartilhado com o
@@ -84,7 +85,7 @@ func rpcClient(addr, method string, params any, out any) error {
 }
 
 func rpcFlag(fs *flag.FlagSet) *string {
-	def := os.Getenv("NODE_RPC")
+	def := os.Getenv("ZHU_RPC")
 	if def == "" {
 		def = "127.0.0.1:8555"
 	}
@@ -94,7 +95,7 @@ func rpcFlag(fs *flag.FlagSet) *string {
 func runInfo(args []string) {
 	fs := flag.NewFlagSet("info", flag.ExitOnError)
 	rpc := rpcFlag(fs)
-	configPath := fs.String("config", "", "arquivo de configuração (default: panda.conf, se existir)")
+	configPath := fs.String("config", "", "arquivo de configuração (default: zhu.conf, se existir)")
 	fs.Parse(args)
 	applyConfig(fs, *configPath)
 
@@ -105,7 +106,7 @@ func runInfo(args []string) {
 		Bits        string  `json:"bits"`
 		Difficulty  float64 `json:"difficulty"`
 		SpacingSecs int64   `json:"target_spacing_seconds"`
-		RewardPanda string  `json:"reward_panda"`
+		RewardZhu   string  `json:"reward_zhu"`
 		NextHalving uint64  `json:"next_halving"`
 		Peers       int     `json:"peers"`
 		Mempool     int     `json:"mempool"`
@@ -127,8 +128,8 @@ func runInfo(args []string) {
 		BlocksToRetgt  uint64  `json:"blocks_to_retarget"`
 		RetargetFactor float64 `json:"retarget_factor"`
 		BlocksToHalve  uint64  `json:"blocks_to_halving"`
-		RewardPanda    string  `json:"reward_panda"`
-		NextReward     string  `json:"next_reward_panda"`
+		RewardZhu      string  `json:"reward_zhu"`
+		NextReward     string  `json:"next_reward_zhu"`
 	}
 	if err := rpcClient(*rpc, "getstats", nil, &st); err == nil {
 		if st.AvgWindow > 0 {
@@ -144,10 +145,10 @@ func runInfo(args []string) {
 			retarget += " — ritmo no alvo, dificuldade estável"
 		}
 		fmt.Println(retarget)
-		fmt.Printf("recompensa   %s PANDA — halving em %d bloco(s) (%s → %s)\n",
-			st.RewardPanda, st.BlocksToHalve, st.RewardPanda, st.NextReward)
+		fmt.Printf("recompensa   %s ZHU — halving em %d bloco(s) (%s → %s)\n",
+			st.RewardZhu, st.BlocksToHalve, st.RewardZhu, st.NextReward)
 	} else {
-		fmt.Printf("recompensa   %s PANDA (próximo halving no bloco %d)\n", info.RewardPanda, info.NextHalving)
+		fmt.Printf("recompensa   %s ZHU (próximo halving no bloco %d)\n", info.RewardZhu, info.NextHalving)
 	}
 	fmt.Printf("peers        %d\nmempool      %d tx(s)\n", info.Peers, info.Mempool)
 	if info.Mining {
@@ -164,15 +165,15 @@ func runBalance(args []string) {
 	fs := flag.NewFlagSet("balance", flag.ExitOnError)
 	rpc := rpcFlag(fs)
 	address := fs.String("address", "", "endereço a consultar (default: a wallet do node)")
-	configPath := fs.String("config", "", "arquivo de configuração (default: panda.conf, se existir)")
+	configPath := fs.String("config", "", "arquivo de configuração (default: zhu.conf, se existir)")
 	fs.Parse(args)
 	applyConfig(fs, *configPath)
 
 	var bal struct {
-		Address        string `json:"address"`
-		BalancePanda   string `json:"balance_panda"`
-		SpendablePanda string `json:"spendable_panda"`
-		UTXOs          int    `json:"utxos"`
+		Address      string `json:"address"`
+		BalanceZhu   string `json:"balance_zhu"`
+		SpendableZhu string `json:"spendable_zhu"`
+		UTXOs        int    `json:"utxos"`
 	}
 	params := map[string]string{}
 	if *address != "" {
@@ -182,17 +183,17 @@ func runBalance(args []string) {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("endereço   %s\nsaldo      %s PANDA (%d UTXOs)\ngastável   %s PANDA (coinbases maduras, nada pendente)\n",
-		bal.Address, bal.BalancePanda, bal.UTXOs, bal.SpendablePanda)
+	fmt.Printf("endereço   %s\nsaldo      %s ZHU (%d UTXOs)\ngastável   %s ZHU (coinbases maduras, nada pendente)\n",
+		bal.Address, bal.BalanceZhu, bal.UTXOs, bal.SpendableZhu)
 }
 
 func runSend(args []string) {
 	fs := flag.NewFlagSet("send", flag.ExitOnError)
 	rpc := rpcFlag(fs)
 	to := fs.String("to", "", "endereço de destino (P...)")
-	amount := fs.String("amount", "", "valor em PANDA, ex.: 1.5")
+	amount := fs.String("amount", "", "valor em ZHU, ex.: 1.5")
 	feeRate := fs.Uint64("fee-rate", 0, "taxa em subunidades/byte (0 = default do node)")
-	configPath := fs.String("config", "", "arquivo de configuração (default: panda.conf, se existir)")
+	configPath := fs.String("config", "", "arquivo de configuração (default: zhu.conf, se existir)")
 	fs.Parse(args)
 	applyConfig(fs, *configPath)
 	if *to == "" || *amount == "" {

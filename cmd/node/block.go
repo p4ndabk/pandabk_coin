@@ -8,13 +8,13 @@ import (
 	"time"
 )
 
-// runBlock é o explorador de bolso: `node block 42` (ou um hash, ou nada =
+// runBlock é o explorador de bolso: `zhu block 42` (ou um hash, ou nada =
 // a ponta) mostra o bloco por dentro — quem minerou (coinbase), quais
 // transações carrega e para onde o dinheiro foi.
 func runBlock(args []string) {
 	fs := flag.NewFlagSet("block", flag.ExitOnError)
 	rpc := rpcFlag(fs)
-	configPath := fs.String("config", "", "arquivo de configuração (default: panda.conf, se existir)")
+	configPath := fs.String("config", "", "arquivo de configuração (default: zhu.conf, se existir)")
 	fs.Parse(args)
 	applyConfig(fs, *configPath)
 
@@ -25,7 +25,7 @@ func runBlock(args []string) {
 		} else if len(arg) == 64 {
 			params["hash"] = arg
 		} else {
-			fmt.Fprintf(os.Stderr, "uso: node block [altura | hash de 64 hex]  (vazio = ponta atual)\n")
+			fmt.Fprintf(os.Stderr, "uso: zhu block [altura | hash de 64 hex]  (vazio = ponta atual)\n")
 			os.Exit(2)
 		}
 	}
@@ -48,8 +48,8 @@ func runBlock(args []string) {
 				Index uint32 `json:"index"`
 			} `json:"ins"`
 			Outs []struct {
-				ValuePanda string `json:"value_panda"`
-				Address    string `json:"address"`
+				ValueZhu string `json:"value_zhu"`
+				Address  string `json:"address"`
 			} `json:"outs"`
 		} `json:"txs"`
 	}
@@ -75,7 +75,7 @@ func runBlock(args []string) {
 			}
 		}
 		for _, out := range tx.Outs {
-			fmt.Printf("   →  %s  %s PANDA\n", out.Address, out.ValuePanda)
+			fmt.Printf("   →  %s  %s ZHU\n", out.Address, out.ValueZhu)
 		}
 	}
 }

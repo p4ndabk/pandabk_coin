@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"pandabk_coin/internal/chain"
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/pow"
+	"zhu/internal/chain"
+	"zhu/internal/params"
+	"zhu/internal/pow"
 )
 
 // runGenesis é o comando dev do M2: minera o bloco 0 de um perfil (procura o

@@ -5,7 +5,7 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 
-	"pandabk_coin/internal/core"
+	"zhu/internal/core"
 )
 
 // reorgTo troca a cadeia ativa pelo ramo que termina em newTip (que já

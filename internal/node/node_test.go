@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"pandabk_coin/internal/chain"
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/wallet"
+	"zhu/internal/chain"
+	"zhu/internal/params"
+	"zhu/internal/wallet"
 )
 
 func testConfig(t *testing.T, mine bool, peers ...string) Config {
@@ -81,7 +81,7 @@ func waitFor(t *testing.T, what string, timeout time.Duration, cond func() bool)
 	t.Fatalf("timeout esperando: %s", what)
 }
 
-func TestParseAmountAndFormatPanda(t *testing.T) {
+func TestParseAmountAndFormatZhu(t *testing.T) {
 	cases := []struct {
 		in   string
 		want uint64
@@ -102,11 +102,11 @@ func TestParseAmountAndFormatPanda(t *testing.T) {
 			t.Fatalf("ParseAmount(%q) = %d, %v; esperava %d (err=%v)", c.in, got, err, c.want, c.err)
 		}
 	}
-	if s := FormatPanda(150_000_000); s != "1.5" {
-		t.Fatalf("FormatPanda(1.5) = %q", s)
+	if s := FormatZhu(150_000_000); s != "1.5" {
+		t.Fatalf("FormatZhu(1.5) = %q", s)
 	}
-	if s := FormatPanda(50 * params.CoinUnit); s != "50" {
-		t.Fatalf("FormatPanda(50) = %q", s)
+	if s := FormatZhu(50 * params.CoinUnit); s != "50" {
+		t.Fatalf("FormatZhu(50) = %q", s)
 	}
 }
 
@@ -135,7 +135,7 @@ func TestSendWithoutWalletFailsClearly(t *testing.T) {
 	defer n.Stop()
 	err = rpcCall(t, n.RPCAddr(), "sendtoaddress", sendParams{To: "P123", Amount: "1"}, nil)
 	if err == nil || !strings.Contains(err.Error(), "wallet new") {
-		t.Fatalf("erro deveria instruir `node wallet new`: %v", err)
+		t.Fatalf("erro deveria instruir `zhu wallet new`: %v", err)
 	}
 }
 
@@ -191,7 +191,7 @@ func TestDemoTwoNodes(t *testing.T) {
 	}
 
 	// a tx confirma num bloco de A e o saldo aparece em B
-	waitFor(t, "1.5 PANDA aparecer no saldo de B", 30*time.Second, func() bool {
+	waitFor(t, "1.5 ZHU aparecer no saldo de B", 30*time.Second, func() bool {
 		var bal balanceResult
 		if err := rpcCall(t, b.RPCAddr(), "getbalance", nil, &bal); err != nil {
 			return false
@@ -214,7 +214,7 @@ func TestDemoTwoNodes(t *testing.T) {
 	if err := rpcCall(t, b.RPCAddr(), "getactivity", nil, &actB); err != nil {
 		t.Fatal(err)
 	}
-	if len(actB) != 1 || actB[0].Direction != "in" || actB[0].AmountPanda != "1.5" ||
+	if len(actB) != 1 || actB[0].Direction != "in" || actB[0].AmountZhu != "1.5" ||
 		actB[0].Coinbase || actB[0].Counterparty != info.Address || actB[0].Height == 0 {
 		t.Fatalf("extrato de B: %+v", actB)
 	}
@@ -232,7 +232,7 @@ func TestDemoTwoNodes(t *testing.T) {
 			coinbases++
 		}
 	}
-	if out == nil || out.AmountPanda != "1.5" || out.Counterparty != bw.Address() || out.FeePanda == "" {
+	if out == nil || out.AmountZhu != "1.5" || out.Counterparty != bw.Address() || out.FeeZhu == "" {
 		t.Fatalf("extrato de A sem a saída esperada: %+v", actA)
 	}
 	if coinbases == 0 {
@@ -342,7 +342,7 @@ func TestMempoolSurvivesRestartAndSyncsToPeers(t *testing.T) {
 	if len(pending) != 1 || pending[0].TxID != txid {
 		t.Fatalf("mempool não sobreviveu ao restart: %+v", pending)
 	}
-	if pending[0].ValuePanda == "" {
+	if pending[0].ValueZhu == "" {
 		t.Fatalf("pendente sem valor: %+v", pending[0])
 	}
 
@@ -430,7 +430,7 @@ func TestGetInfoAndBalanceHandlers(t *testing.T) {
 	if st.AvgWindow != 0 || st.BlocksToHalve != 1000 || st.BlocksToRetgt != 100 || st.TargetSecs != 60 {
 		t.Fatalf("getstats: %+v", st)
 	}
-	if st.RewardPanda != "50" || st.NextRewardPanda != "25" {
+	if st.RewardZhu != "50" || st.NextRewardZhu != "25" {
 		t.Fatalf("recompensas do halving: %+v", st)
 	}
 	var recent []recentBlock

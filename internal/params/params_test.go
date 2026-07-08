@@ -12,7 +12,7 @@ func TestBlockSubsidyHalvingBoundaries(t *testing.T) {
 		{999, 50 * CoinUnit},
 		{1000, 25 * CoinUnit},
 		{1999, 25 * CoinUnit},
-		{2000, 12_50000000 / 1}, // 12.5 PANDA
+		{2000, 12_50000000 / 1}, // 12.5 ZHU
 		{1000 * 64, 0},          // shift >= 64 não pode estourar
 		{^uint64(0), 0},
 	}
@@ -40,10 +40,10 @@ func TestMaxSupplyMatchesSchedule(t *testing.T) {
 		t.Fatalf("MaxSupply() = %d, want %d", got, total)
 	}
 
-	// Sanidade: teto na casa das ~100.000 PANDA (soma geométrica de 50×1000×2,
+	// Sanidade: teto na casa das ~100.000 ZHU (soma geométrica de 50×1000×2,
 	// menos o arredondamento das divisões inteiras).
 	if got := p.MaxSupply() / CoinUnit; got < 99_000 || got > 100_000 {
-		t.Fatalf("MaxSupply() = %d PANDA, esperado ~100.000", got)
+		t.Fatalf("MaxSupply() = %d ZHU, esperado ~100.000", got)
 	}
 }
 
@@ -95,7 +95,7 @@ func TestBuildOverridesRejectGarbage(t *testing.T) {
 		func() { buildSpacing = "rapidinho" },
 		func() { buildSpacing = "10ms" }, // < 1s
 		func() { buildHalving = "0" },
-		func() { buildSubsidy = "5000" },  // > 1000 PANDA
+		func() { buildSubsidy = "5000" },  // > 1000 ZHU
 		func() { buildRetarget = "1" },    // janela degenerada
 		func() { buildRetarget = "1e12" }, // não-numérico/absurdo
 	} {

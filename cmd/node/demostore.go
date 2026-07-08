@@ -17,8 +17,8 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 
-	"pandabk_coin/internal/params"
-	"pandabk_coin/internal/pow"
+	"zhu/internal/params"
+	"zhu/internal/pow"
 )
 
 var errRaceLost = errors.New("outro minerador registrou um bloco nesta altura primeiro")
@@ -368,12 +368,12 @@ func bitsForHeight(s raceStore, rules params.Params, zeros uint, height uint64) 
 	return bits, nil
 }
 
-// ── subcomandos de consulta (node blocks / node ranking) ───────────────────
+// ── subcomandos de consulta (zhu blocks / zhu ranking) ───────────────────
 
 // openStoreForQuery abre o banco local (-db) ou conecta num node remoto
 // (-peer) — os dois viram o mesmo raceStore para o resto do comando.
 func openStoreForQuery(fs *flag.FlagSet, args []string, dbPath, peer *string) raceStore {
-	configPath := fs.String("config", "", "arquivo de configuração chave=valor (default: panda.conf, se existir)")
+	configPath := fs.String("config", "", "arquivo de configuração chave=valor (default: zhu.conf, se existir)")
 	fs.Parse(args)
 	fromCLI := applyConfig(fs, *configPath)
 	if *dbPath == "" && *peer == "" {
@@ -381,7 +381,7 @@ func openStoreForQuery(fs *flag.FlagSet, args []string, dbPath, peer *string) ra
 		os.Exit(2)
 	}
 	if *dbPath != "" && *peer != "" {
-		// Um panda.conf de minerador traz db E peer juntos (é válido lá);
+		// Um zhu.conf de minerador traz db E peer juntos (é válido lá);
 		// para consulta, a cópia local é a fonte natural — só é erro se o
 		// próprio usuário pediu os dois na linha de comando.
 		if fromCLI["db"] && fromCLI["peer"] {
@@ -444,7 +444,7 @@ func runBlocks(args []string) {
 		fmt.Printf(" %6d  %-14s  %-14s  %#08x   %10s  %8s  %7s 🐼\n",
 			b.height, time.Unix(b.foundAt, 0).Format("02/01 15:04:05"), b.miner,
 			b.bits, humanCount(float64(b.attempts)),
-			fmtDur(time.Duration(b.durationMS)*time.Millisecond), formatPanda(b.reward))
+			fmtDur(time.Duration(b.durationMS)*time.Millisecond), formatZhu(b.reward))
 	}
 }
 
@@ -489,9 +489,9 @@ func printRanking(store raceStore, rules params.Params, meta demoMeta) error {
 	}
 	fmt.Printf("── placar ──────────────────────────────────\n")
 	for i, r := range ranks {
-		fmt.Printf("   %dº %-14s %5d blocos (%4.1f%%)  %8s PANDA  ⏱ média %s/bloco\n",
+		fmt.Printf("   %dº %-14s %5d blocos (%4.1f%%)  %8s ZHU  ⏱ média %s/bloco\n",
 			i+1, r.miner, r.blocks, 100*float64(r.blocks)/float64(totalBlocks),
-			formatPanda(r.reward), fmtDur(time.Duration(r.avgMS)*time.Millisecond))
+			formatZhu(r.reward), fmtDur(time.Duration(r.avgMS)*time.Millisecond))
 	}
 
 	tip, err := store.tip()
@@ -502,8 +502,8 @@ func printRanking(store raceStore, rules params.Params, meta demoMeta) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("\n   altura atual %d | emissão %s PANDA | dificuldade do próximo bloco %#08x (~%s tentativas)\n",
-		tip.height, formatPanda(totalReward), bits, humanCount(avgAttempts(bits)))
+	fmt.Printf("\n   altura atual %d | emissão %s ZHU | dificuldade do próximo bloco %#08x (~%s tentativas)\n",
+		tip.height, formatZhu(totalReward), bits, humanCount(avgAttempts(bits)))
 	if totalBlocks >= 2 {
 		if first, err := store.blockAt(1); err == nil {
 			if last, err := store.blockAt(tip.height); err == nil && last.foundAt > first.foundAt {

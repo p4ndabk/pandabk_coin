@@ -1,5 +1,5 @@
 // Package params centraliza os parâmetros de consenso e a política monetária
-// da rede PANDA em perfis imutáveis. Todos os outros pacotes do node importam
+// da rede ZHU em perfis imutáveis. Todos os outros pacotes do node importam
 // daqui; nenhuma regra numérica de consenso vive fora deste pacote.
 // Ver internal/params/SPEC.md.
 package params
@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// CoinUnit é quantas subunidades formam 1 PANDA (como satoshis no Bitcoin).
+// CoinUnit é quantas subunidades formam 1 ZHU (como satoshis no Bitcoin).
 const CoinUnit uint64 = 100_000_000
 
 type Params struct {
@@ -62,7 +62,7 @@ type Params struct {
 var (
 	buildSpacing  string // ex.: "30s" (formato do time.ParseDuration)
 	buildHalving  string // ex.: "1000" (blocos por época de halving)
-	buildSubsidy  string // ex.: "50" (PANDA inteiros por bloco)
+	buildSubsidy  string // ex.: "50" (ZHU inteiros por bloco)
 	buildRetarget string // ex.: "20" (reajusta a dificuldade a cada N blocos)
 )
 
@@ -87,7 +87,7 @@ func applyBuildOverrides(p Params) Params {
 	if buildSubsidy != "" {
 		n, err := strconv.ParseUint(buildSubsidy, 10, 64)
 		if err != nil || n == 0 || n > 1000 {
-			panic(fmt.Sprintf("build.conf: subsidy inválido %q (1 a 1000 PANDA, inteiro)", buildSubsidy))
+			panic(fmt.Sprintf("build.conf: subsidy inválido %q (1 a 1000 ZHU, inteiro)", buildSubsidy))
 		}
 		p.InitialSubsidy = n * CoinUnit
 	}

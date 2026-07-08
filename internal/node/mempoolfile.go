@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"pandabk_coin/internal/core"
+	"zhu/internal/core"
 )
 
 // O mempool vive só em RAM — sem estes dois passos, desligar o node jogaria

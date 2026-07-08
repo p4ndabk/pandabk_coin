@@ -1,4 +1,4 @@
-module pandabk_coin
+module zhu
 
 go 1.25.4
 

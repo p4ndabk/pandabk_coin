@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"pandabk_coin/internal/user"
+	"zhu/internal/user"
 )
 
 func TestGenerateAndParseToken(t *testing.T) {

@@ -1,4 +1,4 @@
-// Package chain é o coração do consenso PANDA: valida blocos contra todas as
+// Package chain é o coração do consenso ZHU: valida blocos contra todas as
 // regras, persiste a cadeia e o UTXO set em bbolt e decide qual ramo é a
 // cadeia verdadeira (fork choice por trabalho acumulado, com reorg seguro).
 // Ver internal/chain/SPEC.md.
@@ -11,7 +11,7 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 
-	"pandabk_coin/internal/core"
+	"zhu/internal/core"
 )
 
 // Buckets bbolt (SPEC.md, "Modelo de dados"). blocks e blockIndex guardam

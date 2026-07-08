@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/glebarez/sqlite"
-	"pandabk_coin/internal/user"
 	"gorm.io/gorm"
+	"zhu/internal/user"
 )
 
 func newTestService(t *testing.T) *user.Service {

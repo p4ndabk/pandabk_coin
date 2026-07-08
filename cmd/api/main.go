@@ -12,12 +12,12 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	_ "pandabk_coin/docs"
-	"pandabk_coin/internal/config"
-	"pandabk_coin/internal/database"
-	"pandabk_coin/internal/docs"
-	"pandabk_coin/internal/health"
-	"pandabk_coin/internal/user"
+	_ "zhu/docs"
+	"zhu/internal/config"
+	"zhu/internal/database"
+	"zhu/internal/docs"
+	"zhu/internal/health"
+	"zhu/internal/user"
 )
 
 // @title           base-project-go API

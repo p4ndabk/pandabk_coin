@@ -10,9 +10,9 @@ import (
 	"sort"
 	"sync"
 
-	"pandabk_coin/internal/chain"
-	"pandabk_coin/internal/core"
-	"pandabk_coin/internal/params"
+	"zhu/internal/chain"
+	"zhu/internal/core"
+	"zhu/internal/params"
 )
 
 // MaxPoolSize limita o pool (evict da menor fee rate quando cheio) — teto de

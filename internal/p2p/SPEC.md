@@ -1,6 +1,6 @@
 # Spec: p2p — protocolo de rede, peers e sincronização
 
-> Domínio do node PANDA (ver [PLAN.md](../../PLAN.md)). Depende de `core`,
+> Domínio do node Zhu (ver [PLAN.md](../../PLAN.md)). Depende de `core`,
 > `chain`, `mempool`, `params`. TCP puro + stdlib — sem libp2p.
 
 ## Conceito

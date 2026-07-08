@@ -14,7 +14,7 @@ an interface — see Conventions).
 - SQLite via `github.com/glebarez/sqlite` (pure Go, no CGO required)
 - `github.com/joho/godotenv` — loads `.env` into environment variables
 
-Module path: `pandabk_coin`
+Module path: `zhu`
 
 ## Architecture
 
@@ -158,9 +158,9 @@ No 100% coverage target — chasing that number forces tests on trivial code
 - Use coverage as a signal to spot untested business logic, not as a target
   to hit.
 
-## PANDA node (`cmd/node`)
+## Zhu node (`cmd/node`)
 
-Além do skeleton Gin/GORM acima, o repo abriga o full node da PANDA Coin —
+Além do skeleton Gin/GORM acima, o repo abriga o full node da Zhu —
 um binário standalone **sem Gin nem GORM** (storage próprio em bbolt), com
 build estático `CGO_ENABLED=0`. Plano e decisões: [PLAN.md](./PLAN.md);
 guia de uso: [TUTORIAL.md](./TUTORIAL.md).
@@ -174,17 +174,17 @@ guia de uso: [TUTORIAL.md](./TUTORIAL.md).
   A coinbase paga a wallet do datadir (criada no primeiro `run`).
 - RPC JSON localhost-only em `/rpc` para a CLI (`info`/`balance`/`send`) —
   bbolt é single-writer, a CLI nunca abre o banco de um node em execução.
-- Config: flags > arquivo `panda.conf` (chave=valor, mesmas chaves dos
+- Config: flags > arquivo `zhu.conf` (chave=valor, mesmas chaves dos
   flags) > env `NODE_*` > defaults.
 - Testes seguem o padrão do repo (`service_test.go`-equivalente por pacote,
   `go test -race` verde); princípio de produto: "um node em cada casa" —
   todo trade-off se decide pela régua do node doméstico.
 
 ```
-CGO_ENABLED=0 go build -o bin/panda-node ./cmd/node
-bin/panda-node run -profile devnet          # sobe o node (minera por padrão)
-bin/panda-node info|balance|send            # CLI via RPC localhost
-bin/panda-node powdemo                      # bancada didática de mineração
+CGO_ENABLED=0 go build -o bin/zhu ./cmd/node
+bin/zhu run -profile devnet          # sobe o node (minera por padrão)
+bin/zhu info|balance|send            # CLI via RPC localhost
+bin/zhu powdemo                      # bancada didática de mineração
 ```
 
 ## Commands

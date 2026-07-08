@@ -1,4 +1,4 @@
-// Package rpcclient é o cliente da RPC JSON local do node PANDA — o mesmo
+// Package rpcclient é o cliente da RPC JSON local do node Zhu — o mesmo
 // envelope {"method","params"} → {"result"}|{"error"} servido em /rpc.
 // Usado pela CLI (cmd/node info/balance/send) e pelo app de desktop
 // (cmd/desktop): ninguém abre o bbolt de um node em execução; conversa-se

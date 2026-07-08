@@ -1,6 +1,6 @@
-# PANDA Coin — blockchain PoW memory-hard em Go
+# Zhu — blockchain PoW memory-hard em Go
 
-> Plano de implementação do node PANDA Coin. Nada daqui foi implementado ainda —
+> Plano de implementação do node Zhu. Nada daqui foi implementado ainda —
 > este documento registra as decisões de design e a ordem de execução (M1–M5).
 > A visão do projeto em prosa, para leitura/áudio, está em
 > [PROPOSTA.md](PROPOSTA.md).
@@ -14,7 +14,7 @@ ASICs/fazendas. A resposta técnica é um PoW **memory-hard (Argon2id)**: o garg
 vira banda de memória RAM (commodity) em vez de FLOPS, então um notebook compete
 de igual pra igual e ASIC não compensa — mesma filosofia do RandomX do Monero.
 
-O repo atual é o skeleton base Gin+GORM (módulo `pandabk_coin` — o CLAUDE.md
+O repo atual é o skeleton base Gin+GORM (módulo `zhu` — o CLAUDE.md
 ainda cita o path antigo). **Decisão**: o node é um binário standalone
 `cmd/node`, sem Gin nem GORM, com storage próprio. O skeleton existente fica
 intocado e compilando (pode virar block explorer no futuro).
@@ -49,7 +49,7 @@ Compromissos concretos que derivam disso:
   pouco"
 - **PoW: Argon2id** via `golang.org/x/crypto/argon2` (já no go.mod) — pure Go, `CGO_ENABLED=0`
 - **Binário standalone `cmd/node`** com storage próprio
-- **Economia dev/ciclos curtos, configurável**: bloco ~60s, halving a cada 1.000 blocos, recompensa inicial 50 PANDA (5e9 subunidades, 1 PANDA = 1e8), retarget a cada 100 blocos → supply máximo ~100.000 PANDA. Tudo num pacote `params` com perfis (devnet agora, mainnet 10min depois)
+- **Economia dev/ciclos curtos, configurável**: bloco ~60s, halving a cada 1.000 blocos, recompensa inicial 50 ZHU (5e9 subunidades, 1 ZHU = 1e8), retarget a cada 100 blocos → supply máximo ~100.000 ZHU. Tudo num pacote `params` com perfis (devnet agora, mainnet 10min depois)
 
 ## Decisões técnicas (uma escolha por ponto)
 
@@ -57,7 +57,7 @@ Compromissos concretos que derivam disso:
 |---|---|---|
 | Modelo de transação | **UTXO** (Bitcoin-like) | Casa com PoW/coinbase, verificação stateless, referência mais documentada |
 | Assinaturas | **stdlib `crypto/ecdsa` P-256** (SignASN1, pubkey comprimida 33B) | Zero dependência nova, pure Go |
-| Hash PoW vs ID | **Argon2id(header 96B, salt fixo `"pandabk/pow/v1"`) < target**; **ID do bloco = SHA-256d(header)** | Separar ID barato do hash caro é o padrão de moedas memory-hard (Monero) — o índice nunca recomputa Argon2 |
+| Hash PoW vs ID | **Argon2id(header 96B, salt fixo `"zhubk/pow/v1"`) < target**; **ID do bloco = SHA-256d(header)** | Separar ID barato do hash caro é o padrão de moedas memory-hard (Monero) — o índice nunca recomputa Argon2 |
 | Params Argon2id (devnet) | mem=64MiB, time=1, threads=1, keyLen=32 (~100–200ms/hash); perfil de teste com 1MiB p/ testes rápidos | Sub-segundo em laptop, memory-hard de verdade, 1 worker ≈ 64MiB |
 | Dificuldade | **nBits compacto (uint32)** no header, expandido p/ `big.Int`; trabalho = `2^256/(target+1)` | Formato fixo bem entendido |
 | Retarget | **Estilo Bitcoin: a cada 100 blocos, clamp 4×/¼×** | Simples e testável; LWMA fica como non-goal |
@@ -163,7 +163,7 @@ B vazio → B sincroniza; forks convergem pra mais trabalho; tx gossip A→B.
 dificuldade devnet com 1 worker (~64MiB); template reinicia em novo tip e inclui
 txs por fee; `balance`/`send`/`info` via RPC; SIGINT fecha bbolt limpo; demo
 2 nodes abaixo funciona; atualizar CLAUDE.md (seção Node + corrigir linha do
-módulo — é `pandabk_coin`) e README; `go vet`/`go test` verdes.
+módulo — é `zhu`) e README; `go vet`/`go test` verdes.
 
 ## Verificação
 
@@ -177,11 +177,11 @@ Demo 2 nodes na mesma máquina:
 
 ```sh
 # terminal 1 — minerador
-./bin/node run --profile devnet --datadir ~/.panda/n1 --listen :9551 --rpc 127.0.0.1:8551 --mine
+./bin/node run --profile devnet --datadir ~/.zhu/n1 --listen :9551 --rpc 127.0.0.1:8551 --mine
 # terminal 2 — seguidor
-./bin/node run --profile devnet --datadir ~/.panda/n2 --listen :9552 --rpc 127.0.0.1:8552 --peers 127.0.0.1:9551
+./bin/node run --profile devnet --datadir ~/.zhu/n2 --listen :9552 --rpc 127.0.0.1:8552 --peers 127.0.0.1:9551
 # terminal 3 — wallet
-./bin/node wallet new --datadir ~/.panda/n2
+./bin/node wallet new --datadir ~/.zhu/n2
 ./bin/node info    --rpc 127.0.0.1:8552   # alturas convergem => sync ok
 ./bin/node balance --rpc 127.0.0.1:8551   # cresce conforme coinbases maturam
 ./bin/node send    --rpc 127.0.0.1:8551 --to P... --amount 1.5

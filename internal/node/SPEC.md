@@ -1,6 +1,6 @@
 # Spec: node — orquestração, config, RPC e CLI
 
-> Domínio do node PANDA (ver [PLAN.md](../../PLAN.md)). É o overview do node:
+> Domínio do node Zhu (ver [PLAN.md](../../PLAN.md)). É o overview do node:
 > junta `params`+`chain`+`mempool`+`p2p`+`miner`+`wallet` num processo só,
 > exposto pelo binário `cmd/node`. Wiring manual, sem DI — mesmo espírito de
 > `cmd/api/main.go`.
@@ -57,7 +57,7 @@ segurança.
   wallet (0600) e loga o endereço. A alternativa (minerar desligado por default)
   significaria uma rede que não arranca sozinha; escolhemos que instalar o node
   já é contribuir.
-- **Config em camadas: flag > arquivo `panda.conf` > env `NODE_*` > default.** A
+- **Config em camadas: flag > arquivo `zhu.conf` > env `NODE_*` > default.** A
   mesma chave pode vir de quatro lugares, com precedência clara. Flags para o
   ajuste pontual, arquivo para o setup persistente (menos flags repetidos), env
   para container/systemd, default para "só funciona". Espelha o `getEnv` do
@@ -84,7 +84,7 @@ local para o CLI e definir a configuração do node.
 Entra:
 - `config.go` — flags primeiro, env `NODE_*` como fallback (espelha o padrão
   `getEnv` de `internal/config/config.go`, sem tocá-lo):
-  `--datadir`/`NODE_DATADIR` (default `~/.panda`), `--listen`/`NODE_LISTEN`
+  `--datadir`/`NODE_DATADIR` (default `~/.zhu`), `--listen`/`NODE_LISTEN`
   (`:9551`), `--rpc`/`NODE_RPC` (`127.0.0.1:8555`), `--peers`/`NODE_PEERS`
   (lista separada por vírgula), `--mine`/`NODE_MINE` (**default true** —
   opt-out), `--miners`/`NODE_MINERS` (default 1), `--profile`/`NODE_PROFILE`
@@ -121,7 +121,7 @@ N/A — orquestração. Config é struct em memória.
 ## Interface (CLI)
 
 ```
-node run     --profile devnet --datadir ~/.panda/n1 --listen :9551 --rpc 127.0.0.1:8551 [--mine] [--miners 1] [--peers host:port,...]
+node run     --profile devnet --datadir ~/.zhu/n1 --listen :9551 --rpc 127.0.0.1:8551 [--mine] [--miners 1] [--peers host:port,...]
 node wallet new|address --datadir ...
 node info    --rpc 127.0.0.1:8551
 node balance --rpc ... [--address P...]
@@ -150,7 +150,7 @@ envelope do apierror, sem importá-lo).
 - [x] Stop fecha o bbolt limpo (teste reabre a chain sem erro; `run` liga o
       SIGINT nesse mesmo caminho)
 - [x] RPC só em loopback; tentativa de bind externo falha com mensagem
-- [x] `CGO_ENABLED=0 go build -o bin/panda-node ./cmd/node` produz binário
+- [x] `CGO_ENABLED=0 go build -o bin/zhu ./cmd/node` produz binário
       estático
 - [x] Cross-compile verde para linux/darwin/windows em amd64 e arm64
       (Raspberry Pi é cidadão de primeira classe)

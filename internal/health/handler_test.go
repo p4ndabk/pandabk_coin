@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
-	"pandabk_coin/internal/health"
 	"gorm.io/gorm"
+	"zhu/internal/health"
 )
 
 func setupRouter(db *gorm.DB) *gin.Engine {

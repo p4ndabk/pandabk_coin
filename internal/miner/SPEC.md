@@ -1,6 +1,6 @@
 # Spec: miner — o loop de mineração
 
-> Domínio do node PANDA (ver [PLAN.md](../../PLAN.md)). Depende de `core`,
+> Domínio do node Zhu (ver [PLAN.md](../../PLAN.md)). Depende de `core`,
 > `pow`, `chain`, `mempool`, `params`.
 
 ## Conceito
