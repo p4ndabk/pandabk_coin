@@ -4,13 +4,17 @@ Projeto base em Go usando Gin + GORM, organizado por domínio (sem
 interfaces/repository). Detalhes de arquitetura e convenções em
 [CLAUDE.md](./CLAUDE.md).
 
-> 🐼 **Zhu**: este repositório também abriga o full node da Zhu
+> 🎋 **Zhu Network**: este repositório também abriga o full node da Zhu
 > (`cmd/node`) — binário estático, sem Gin/GORM, que valida a chain, fala
 > p2p e **minera por padrão** (`CGO_ENABLED=0 go build -o bin/zhu
-> ./cmd/node && bin/zhu run`). **Documentação oficial (instalação,
-> multi-node, Tor, referência de comandos): [docs/README.md](./docs/README.md)**.
-> Guia narrado para iniciantes: [TUTORIAL.md](./TUTORIAL.md). Plano e decisões
-> de design em [PLAN.md](./PLAN.md); visão em [PROPOSTA.md](./PROPOSTA.md).
+> ./cmd/node && bin/zhu run`). **Documentação web (identidade da rede,
+> arquitetura, referência): rode `bin/zhu docs`** — sobe a doc em localhost e
+> abre o navegador. Também disponível como página estática em
+> [docs/index.html](./docs/index.html); referência de comandos em
+> [docs/README.md](./docs/README.md). Guia narrado para iniciantes:
+> [TUTORIAL.md](./TUTORIAL.md). Plano e decisões de design em
+> [PLAN.md](./PLAN.md); visão em [PROPOSTA.md](./PROPOSTA.md); marca em
+> [BRAND.md](./BRAND.md).
 
 ## Requisitos
 
@@ -87,6 +91,25 @@ embute `gorm.Model` (tipo de uma dependência externa). O resultado (pasta
 `docs/`) é versionado — não precisa instalar o `swag` globalmente, ele já
 está disponível via `go tool swag ...` (declarado como tool dependency no
 `go.mod`).
+
+## Documentação da Zhu (web)
+
+A documentação técnica da **Zhu Network** — identidade da rede, arquitetura
+dos pacotes, consenso PoW memory-hard, referência de RPC/CLI e economia — é
+uma página única com a marca do projeto (`docs/index.html`). Um comando sobe
+ela em localhost e abre o navegador:
+
+```bash
+CGO_ENABLED=0 go build -o bin/zhu ./cmd/node
+bin/zhu docs                 # http://127.0.0.1:8600 + abre o navegador
+```
+
+Flags: `-addr` muda a porta (loopback), `-open=false` só serve sem abrir o
+navegador, `-dir` aponta outra pasta. O comando procura o `docs/index.html`
+a partir do diretório atual (e dos diretórios acima), então roda a partir de
+qualquer subpasta do repositório. Sem o binário, é só abrir
+`docs/index.html` direto no navegador. O diagrama de arquitetura editável
+fica em [`docs/arquitetura-zhu.excalidraw`](./docs/arquitetura-zhu.excalidraw).
 
 ## Tratamento de erros
 

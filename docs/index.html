@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zhu Network — documentação técnica</title>
+<meta name="description" content="Zhu Network — blockchain proof-of-work memory-hard. Um node em cada casa.">
+<link rel="icon" type="image/png" href="assets/zhu-favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ===== Paleta — as cores do bambu (BRAND.md) ===== */
+  :root{
+    --bambuzal:#173404;  /* base escura, substitui o preto */
+    --folha:#3B6D11;     /* verde maduro — títulos, links sobre claro */
+    --broto:#639922;     /* PRIMÁRIA — áreas de cor, vínculos */
+    --rebento:#97C459;   /* verde tenro — realces, sucesso, texto sobre escuro */
+    --palha:#C7B037;     /* ponte verde↔âmbar */
+    --no:#8A5A2B;        /* marrom terroso — texto sobre claro */
+    --lume:#EF9F27;      /* âmbar da luz — RESERVADO à luz (node aceso) */
+
+    --bg:#ffffff;
+    --bg-soft:#f7f9f4;
+    --text:#173404;
+    --text-soft:#5c5a4e;
+    --muted:#9a9384;
+    --border:#e6e9df;
+    --link:#3B6D11;
+    --accent:#639922;
+    --code-bg:#f1f4ec;
+    --code-text:#3B6D11;
+    --pre-bg:#0d2103;
+    --pre-text:#d7e4cb;
+    --pre-comment:#6f8a5a;
+    --pre-str:#97C459;
+    --pre-num:#C7B037;
+    --pre-key:#EF9F27;
+    --callout-bg:#f2f7ea;
+    --callout-border:#639922;
+    --table-head:#f4f7ee;
+    --hero-a:#f4f9ec;
+    --hero-b:#ffffff;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f2404;
+    --bg-soft:#173404;
+    --text:#eef3e6;
+    --text-soft:#c2d3af;
+    --muted:#7f9469;
+    --border:#25470f;
+    --link:#97C459;
+    --accent:#97C459;
+    --code-bg:#1c3a08;
+    --code-text:#b6d98a;
+    --pre-bg:#081a02;
+    --pre-text:#d7e4cb;
+    --pre-comment:#6f8a5a;
+    --pre-str:#97C459;
+    --pre-num:#C7B037;
+    --pre-key:#EF9F27;
+    --callout-bg:#18330a;
+    --callout-border:#639922;
+    --table-head:#153003;
+    --hero-a:#123002;
+    --hero-b:#0f2404;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f2404;--bg-soft:#173404;--text:#eef3e6;--text-soft:#c2d3af;--muted:#7f9469;
+      --border:#25470f;--link:#97C459;--accent:#97C459;--code-bg:#1c3a08;--code-text:#b6d98a;
+      --pre-bg:#081a02;--callout-bg:#18330a;--table-head:#153003;--hero-a:#123002;--hero-b:#0f2404;
+    }
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--link);text-decoration:none}
+  a:hover{text-decoration:underline}
+  ::selection{background:var(--rebento);color:var(--bambuzal)}
+
+  /* ===== topbar ===== */
+  header.topbar{
+    position:sticky;top:0;z-index:40;height:66px;display:flex;align-items:center;gap:14px;
+    padding:0 24px;background:color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--border);
+  }
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand img{width:38px;height:38px;display:block}
+  .brand .wm{font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:21px;letter-spacing:-.01em;color:var(--text)}
+  .brand .nw{font-family:"Space Grotesk",sans-serif;font-weight:500;font-size:13px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-left:-4px}
+  .spacer{flex:1}
+  .aceso{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--folha);
+    border:1px solid var(--border);padding:5px 11px;border-radius:999px;background:var(--bg-soft)}
+  .aceso .dot{width:8px;height:8px;border-radius:50%;background:var(--lume);box-shadow:0 0 0 3px color-mix(in srgb,var(--lume) 25%,transparent)}
+  :root[data-theme="dark"] .aceso{color:var(--rebento)}
+  .theme-btn{cursor:pointer;border:1px solid var(--border);background:var(--bg-soft);color:var(--text-soft);
+    width:40px;height:40px;border-radius:9px;font-size:16px;display:grid;place-items:center}
+  .theme-btn:hover{color:var(--text)}
+
+  /* ===== layout ===== */
+  .layout{display:flex;max-width:1440px;margin:0 auto}
+  nav.sidebar{
+    width:296px;flex:0 0 296px;align-self:flex-start;position:sticky;top:66px;
+    height:calc(100vh - 66px);overflow-y:auto;padding:30px 8px 64px 24px;
+    border-right:1px solid var(--border);
+  }
+  nav.sidebar h4{
+    font-family:"Space Grotesk",sans-serif;font-size:12px;text-transform:uppercase;
+    letter-spacing:.1em;color:var(--muted);margin:24px 0 8px;font-weight:600;
+  }
+  nav.sidebar h4:first-child{margin-top:0}
+  nav.sidebar a{
+    display:block;padding:5px 12px;margin:1px 0;border-radius:8px;color:var(--text-soft);
+    font-size:14.5px;font-weight:500;line-height:1.4;border-left:2px solid transparent;
+  }
+  nav.sidebar a:hover{background:var(--bg-soft);color:var(--text);text-decoration:none}
+  nav.sidebar a.active{color:var(--folha);background:var(--callout-bg);border-left-color:var(--broto);font-weight:600}
+  :root[data-theme="dark"] nav.sidebar a.active{color:var(--rebento)}
+
+  main{flex:1;min-width:0;padding:0 56px 120px;max-width:940px}
+  .content{max-width:768px}
+
+  /* ===== hero ===== */
+  .hero{
+    margin:38px 0 8px;padding:38px 40px;border-radius:20px;border:1px solid var(--border);
+    background:radial-gradient(120% 140% at 92% 0%, var(--hero-a), var(--hero-b) 60%);
+    display:flex;align-items:center;gap:30px;position:relative;overflow:hidden;
+  }
+  .hero .glow{position:absolute;right:26px;top:22px;width:150px;height:150px;border-radius:50%;
+    background:radial-gradient(circle, color-mix(in srgb,var(--lume) 34%,transparent), transparent 68%);pointer-events:none}
+  .hero img{width:112px;height:112px;flex:0 0 112px;position:relative}
+  .hero-text{position:relative}
+  .hero .kanji{font-size:15px;color:var(--broto);letter-spacing:.3em;font-weight:600}
+  .hero h1{font-family:"Space Grotesk",sans-serif;font-size:40px;line-height:1.05;font-weight:700;
+    letter-spacing:-.02em;margin:4px 0 2px;color:var(--text)}
+  .hero .tagline{font-family:"Space Grotesk",sans-serif;font-size:17px;font-weight:600;color:var(--folha);margin:8px 0 0}
+  :root[data-theme="dark"] .hero .tagline{color:var(--rebento)}
+  .lead{font-size:18.5px;color:var(--text-soft);margin:26px 0 34px;line-height:1.6}
+
+  .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
+  .pill{font-family:"JetBrains Mono",monospace;font-size:12.5px;font-weight:500;padding:4px 11px;border-radius:999px;
+    background:var(--bg-soft);border:1px solid var(--border);color:var(--text-soft)}
+  .pill.p{color:var(--folha);border-color:color-mix(in srgb,var(--broto) 45%,var(--border))}
+  :root[data-theme="dark"] .pill.p{color:var(--rebento)}
+
+  h2{font-family:"Space Grotesk",sans-serif;font-size:27px;font-weight:700;letter-spacing:-.01em;margin:56px 0 16px;padding-top:14px}
+  h3{font-family:"Space Grotesk",sans-serif;font-size:19px;font-weight:600;margin:34px 0 12px}
+  h2 .anchor,h3 .anchor{opacity:0;color:var(--broto);font-weight:400;margin-left:8px;font-size:.8em}
+  h2:hover .anchor,h3:hover .anchor{opacity:1}
+  p{margin:14px 0}
+  ul,ol{padding-left:22px;margin:14px 0}
+  li{margin:6px 0}
+  li::marker{color:var(--broto)}
+  hr{border:none;border-top:1px solid var(--border);margin:48px 0}
+  strong{font-weight:700;color:var(--text)}
+  em{color:var(--no)}
+  :root[data-theme="dark"] em{color:var(--palha)}
+
+  code{
+    font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+    font-size:.85em;background:var(--code-bg);color:var(--code-text);
+    padding:.15em .42em;border-radius:5px;font-weight:500;
+  }
+  pre{
+    background:var(--pre-bg);color:var(--pre-text);border-radius:14px;padding:20px 22px;
+    overflow-x:auto;font-size:13.5px;line-height:1.62;margin:20px 0;border:1px solid #1c3a08;
+    font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  pre code{background:none;color:inherit;padding:0;font-size:inherit;font-weight:400}
+  pre .c{color:var(--pre-comment)}
+  pre .g{color:var(--pre-str)}
+  pre .b{color:var(--pre-num)}
+  pre .k{color:var(--pre-key)}
+
+  .callout{
+    background:var(--callout-bg);border-left:4px solid var(--callout-border);
+    border-radius:0 12px 12px 0;padding:14px 20px;margin:22px 0;font-size:15px;
+  }
+  .callout p{margin:6px 0}
+  .callout .tag{font-family:"Space Grotesk",sans-serif;font-weight:600;color:var(--folha);font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+  :root[data-theme="dark"] .callout .tag{color:var(--rebento)}
+  .callout.lume{border-left-color:var(--lume);background:color-mix(in srgb,var(--lume) 9%, var(--bg))}
+  .callout.lume .tag{color:var(--no)}
+  :root[data-theme="dark"] .callout.lume .tag{color:var(--palha)}
+
+  table{border-collapse:collapse;width:100%;margin:22px 0;font-size:14.5px;display:block;overflow-x:auto}
+  th,td{border:1px solid var(--border);padding:9px 13px;text-align:left;vertical-align:top}
+  th{background:var(--table-head);font-weight:700;white-space:nowrap;font-family:"Space Grotesk",sans-serif}
+  td code{white-space:nowrap}
+
+  blockquote{margin:22px 0;padding:6px 20px;border-left:4px solid var(--rebento);color:var(--text-soft);font-style:italic}
+
+  .footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--border);color:var(--muted);font-size:14px}
+  .footer .fbrand{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .footer .fbrand img{width:26px;height:26px}
+  .footer .fbrand b{font-family:"Space Grotesk",sans-serif;color:var(--text-soft)}
+
+  @media (max-width:980px){
+    nav.sidebar{display:none}
+    main{padding:0 20px 90px;max-width:100%}
+    .hero{flex-direction:column;text-align:center;padding:30px 22px}
+    .hero h1{font-size:32px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="assets/zhu-logo.png" alt="Zhu">
+    <span class="wm">zhu</span><span class="nw">network</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="aceso"><span class="dot"></span> node aceso</div>
+  <div class="theme-btn" id="themeToggle" title="Alternar tema">◐</div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <h4>Começando</h4>
+    <a href="#introducao">Introdução</a>
+    <a href="#filosofia">Um node em cada casa</a>
+    <a href="#decisoes">Decisões técnicas</a>
+
+    <h4>Arquitetura</h4>
+    <a href="#pacotes">Layout de pacotes</a>
+    <a href="#node">O full node</a>
+    <a href="#fluxo">Fluxo de dados</a>
+
+    <h4>Consenso</h4>
+    <a href="#pow">PoW memory-hard</a>
+    <a href="#dados">Estrutura de dados</a>
+    <a href="#chain">Chain &amp; storage</a>
+    <a href="#dificuldade">Dificuldade &amp; retarget</a>
+
+    <h4>Transações</h4>
+    <a href="#mempool">Mempool</a>
+    <a href="#wallet">Wallet &amp; identidade</a>
+
+    <h4>Rede</h4>
+    <a href="#p2p">Protocolo P2P</a>
+    <a href="#sync">Sincronização (IBD)</a>
+    <a href="#tor">Tor &amp; privacidade</a>
+
+    <h4>Operação</h4>
+    <a href="#miner">Miner</a>
+    <a href="#rpc">RPC &amp; CLI</a>
+    <a href="#config">Configuração</a>
+    <a href="#economia">Economia</a>
+
+    <h4>Uso</h4>
+    <a href="#build">Build &amp; execução</a>
+    <a href="#testes">Testes</a>
+  </nav>
+
+  <main>
+  <div class="content">
+
+    <section class="hero">
+      <div class="glow"></div>
+      <img src="assets/zhu-logo.png" alt="Zhu Network">
+      <div class="hero-text">
+        <div class="kanji">竹 · zhú · bambu</div>
+        <h1>Zhu Network</h1>
+        <p class="tagline">Descentralizados e unidos!</p>
+      </div>
+    </section>
+
+    <p class="lead">Uma rede onde cada casa tem luz própria. Por baixo, uma blockchain proof-of-work <strong>memory-hard</strong> (Argon2id) desenhada para uma única obsessão — <strong>um node em cada casa</strong>: a mineração cabe num notebook usado, num Raspberry Pi, num PC antigo. O gargalo é RAM comum, não hardware specializado.</p>
+
+    <div class="pill-row">
+      <span class="pill p">Argon2id PoW</span>
+      <span class="pill p">UTXO</span>
+      <span class="pill">Go 1.25</span>
+      <span class="pill">bbolt</span>
+      <span class="pill">TCP + JSON P2P</span>
+      <span class="pill">ECDSA P-256</span>
+      <span class="pill">1 binário estático</span>
+    </div>
+
+    <h2 id="introducao">Introdução <a class="anchor" href="#introducao">#</a></h2>
+    <p>A Zhu segue os paradigmas do Bitcoin — proof of work, halving, descentralização — mas com um diferencial central: <strong>mineração acessível a qualquer máquina comum</strong>, com baixo consumo de energia e sem centralização em ASICs ou fazendas.</p>
+    <p>A resposta técnica é um PoW <strong>memory-hard (Argon2id)</strong>: o gargalo vira <em>banda de memória RAM</em> (commodity) em vez de FLOPS. Um notebook compete de igual pra igual e ASIC não compensa — mesma filosofia do RandomX do Monero.</p>
+    <blockquote>Assim como o bambu é a energia simples e abundante que sustenta a vida de baixo consumo do panda, a RAM comum é o "bambu" da rede — qualquer casa tem, ninguém precisa de uma usina para participar.</blockquote>
+
+    <div class="callout">
+      <p class="tag">O repositório</p>
+      <p>O node vive num binário standalone <code>cmd/node</code> (módulo <code>zhu</code>), <strong>sem Gin nem GORM</strong>, com storage próprio em bbolt. O skeleton Gin+GORM fica intocado e compilando — pode virar block explorer no futuro.</p>
+    </div>
+
+    <h2 id="filosofia">Um node em cada casa <a class="anchor" href="#filosofia">#</a></h2>
+    <p>A meta é ser <strong>a rede mais descentralizada possível</strong>: qualquer pessoa deve conseguir rodar um full node em casa — sem sentir. Descentralização não é discurso, é <strong>orçamento de recursos</strong>. Todo trade-off se decide por esta régua: <em>"isso deixa mais fácil ou mais difícil ter um node em casa?"</em></p>
+
+    <table>
+      <thead><tr><th>Recurso</th><th>Orçamento</th><th>Como</th></tr></thead>
+      <tbody>
+        <tr><td>Instalação</td><td>1 binário estático, zero deps</td><td><code>CGO_ENABLED=0</code>; cross-compile linux/darwin/windows, amd64+arm64</td></tr>
+        <tr><td>CPU</td><td>1 core em uso moderado</td><td>Argon2id + default de 1 worker; sem corrida armamentista de hardware</td></tr>
+        <tr><td>RAM</td><td>idle &lt; ~128 MiB; +64 MiB/worker</td><td>a matriz do Argon2 é o maior consumidor, e é limitada por config</td></tr>
+        <tr><td>Disco</td><td>crescimento previsível e baixo</td><td><strong>MaxBlockSize 256 KiB como regra de consenso</strong> (~13 GB/ano pior caso)</td></tr>
+        <tr><td>Banda</td><td>conexão doméstica comum</td><td>gossip <code>inv</code>/<code>getdata</code> (nada trafega 2×), headers de 96 B no sync</td></tr>
+        <tr><td>NAT</td><td>funciona atrás do roteador</td><td>node outbound-only é cidadão pleno: valida, minera e propaga por conexões de saída</td></tr>
+      </tbody>
+    </table>
+    <p>Com PoW memory-hard, a segurança vem da <strong>quantidade</strong> de participantes, não da potência de cada um. "Um node em cada casa" implica "cada casa minera um pouco" — cada pessoa que sobe um node acende o seu <em>lume</em>.</p>
+
+    <h2 id="decisoes">Decisões técnicas <a class="anchor" href="#decisoes">#</a></h2>
+    <p>Uma escolha por ponto — sem interfaces especulativas, sem DI, wiring manual (convenção do repositório).</p>
+    <table>
+      <thead><tr><th>Ponto</th><th>Escolha</th><th>Por quê</th></tr></thead>
+      <tbody>
+        <tr><td>Modelo de tx</td><td><strong>UTXO</strong> (Bitcoin-like)</td><td>casa com PoW/coinbase, verificação stateless</td></tr>
+        <tr><td>Assinaturas</td><td><code>crypto/ecdsa</code> P-256 (SignASN1, pubkey 33 B)</td><td>zero dependência nova, pure Go</td></tr>
+        <tr><td>Hash PoW vs ID</td><td>Argon2id(header) &lt; target · <strong>ID = SHA-256d(header)</strong></td><td>separar ID barato do hash caro (à la Monero)</td></tr>
+        <tr><td>Dificuldade</td><td>nBits compacto (uint32) → <code>big.Int</code></td><td>formato fixo bem entendido</td></tr>
+        <tr><td>Retarget</td><td>a cada 100 blocos, clamp 4× / ¼×</td><td>simples e testável (LWMA é non-goal)</td></tr>
+        <tr><td>Storage</td><td><strong>bbolt</strong> — única dependência nova</td><td>pure Go, single-file, ACID, shape KV exato</td></tr>
+        <tr><td>P2P</td><td>TCP puro + length-prefix + JSON</td><td>libp2p contradiz "deps mínimas / binário estático"</td></tr>
+        <tr><td>Wallet/CLI</td><td>um binário; comandos falam por RPC localhost</td><td>evita conflito de lock do bbolt (single-writer)</td></tr>
+        <tr><td>Endereço</td><td>Base58Check versão <code>0x37</code> (começa com <code>P</code>)</td><td>evita ripemd160 deprecado; sem dep nova</td></tr>
+      </tbody>
+    </table>
+
+    <hr>
+
+    <h2 id="pacotes">Layout de pacotes <a class="anchor" href="#pacotes">#</a></h2>
+    <p>Direção de dependência <strong>estrita</strong>: cada camada só usa as de baixo. Structs concretos, wiring manual em <code>cmd/node/main.go</code>, sem interfaces/DI.</p>
+    <pre><code><span class="c">params ← core ← pow ← chain ← {mempool, wallet} ← {p2p, miner} ← node ← cmd/node</span>
+
+cmd/node/main.go     <span class="c"># dispatch de subcomandos, wiring manual</span>
+internal/params/     <span class="c"># Params + perfis DevNet/MainNet, BlockSubsidy, genesis</span>
+internal/core/       <span class="c"># block, tx (UTXO), merkle, encoding canônico, address</span>
+internal/pow/        <span class="c"># argon2 (PowHash), target, retarget</span>
+internal/chain/      <span class="c"># store (bbolt), AcceptBlock, validate, forkchoice, orphans</span>
+internal/mempool/    <span class="c"># pool por txid, anti double-spend, ordenação por fee</span>
+internal/wallet/     <span class="c"># keygen P-256, wallet.json (0600), BuildTx</span>
+internal/p2p/        <span class="c"># message, codec, peer, server, sync (IBD)</span>
+internal/miner/      <span class="c"># worker pool (default 1), template, restart em novo tip</span>
+internal/node/       <span class="c"># config, node (Start/Stop), rpc (localhost)</span></code></pre>
+
+    <div class="callout">
+      <p class="tag">Spec-first</p>
+      <p>Cada pacote tem sua própria <code>SPEC.md</code>, com uma seção didática de "Conceito" — o usuário aprende blockchain lendo o projeto. Non-goals explícitos em cada spec: sem scripts, sem SPV, sem criptografia de wallet v1, sem NAT traversal, sem explorer.</p>
+    </div>
+
+    <h2 id="node">O full node <a class="anchor" href="#node">#</a></h2>
+    <p>O <strong>full node</strong> é a unidade de soberania da rede: valida tudo por conta própria (não confia em ninguém), guarda a cadeia inteira, serve outros nós e <strong>minera por padrão</strong> com 1 worker. Rodar um node é o ato que descentraliza a rede.</p>
+    <p>O processo junta quatro subsistemas ligados pelo <code>Node</code>, montados à mão (igual ao <code>cmd/api/main.go</code> faz com seus serviços):</p>
+    <ul>
+      <li><strong>chain</strong> — o estado: valida e persiste blocos, mantém o UTXO set, faz reorg.</li>
+      <li><strong>mempool</strong> — a fila de transações pendentes.</li>
+      <li><strong>p2p</strong> — a rede: handshake, gossip, sincronização.</li>
+      <li><strong>miner</strong> — opcional (default ligado): produz blocos novos.</li>
+    </ul>
+
+    <div class="callout">
+      <p class="tag">Shutdown em ordem estrita</p>
+      <p><code>p2p → miner → bbolt</code>. Fechar o banco antes de parar quem escreve nele (miner e p2p aceitando blocos) corromperia uma transação em voo. A ordem não é estética — é o que garante que um SIGINT durante o IBD deixe o disco consistente.</p>
+    </div>
+
+    <h2 id="fluxo">Fluxo de dados <a class="anchor" href="#fluxo">#</a></h2>
+    <p>Como os quatro subsistemas trocam informação dentro de um único processo:</p>
+    <pre><code>          <span class="k">peers</span>
+            │ inv / getdata (TCP :9551)
+            ▼
+        ┌─────────┐   tx        ┌──────────┐
+        │  p2p    │────────────▶│ mempool  │
+        └────┬────┘             └────┬─────┘
+       block │                       │ template (por fee)
+             ▼                       ▼
+        ┌─────────┐  novo bloco ┌──────────┐
+        │  chain  │◀────────────│  miner   │
+        └─────────┘             └──────────┘
+          evict / restore no connect/reorg</code></pre>
+
+    <hr>
+
+    <h2 id="pow">PoW memory-hard <a class="anchor" href="#pow">#</a></h2>
+    <p>Cada bloco só é válido se o hash de PoW do seu header ficar <strong>abaixo do alvo</strong>. O hash de PoW é <strong>Argon2id</strong> — memory-hard de verdade — enquanto o <em>ID</em> do bloco é um SHA-256d barato do mesmo header. Separar os dois é o padrão de moedas memory-hard: o índice nunca recomputa Argon2.</p>
+    <pre><code><span class="g">PowHash</span> = Argon2id(header[96B], salt=<span class="b">"zhubk/pow/v1"</span>)
+          mem=<span class="b">64 MiB</span> · time=<span class="b">1</span> · threads=<span class="b">1</span> · keyLen=<span class="b">32</span>   <span class="c">// ~100–200 ms/hash em laptop</span>
+
+bloco válido   ⟺   <span class="g">PowHash</span> &lt; target(Bits)
+ID do bloco    =   SHA-256d(header)          <span class="c">// barato, ≠ hash de PoW</span></code></pre>
+    <p>Com Argon2id não há incentivo pra escalar hardware: o custo por participante fica fixo e baixo (1 core + 64 MiB por worker). O contraste com o Bitcoin é deliberado — onde o Bitcoin é laranja de energia cara, a Zhu é verde de energia de casa.</p>
+
+    <h2 id="dados">Estrutura de dados <a class="anchor" href="#dados">#</a></h2>
+    <h3>Block header — 96 bytes</h3>
+    <p>Serializado com codificação binária canônica (hashing determinístico — <code>gob</code>/JSON não servem para consenso):</p>
+    <pre><code>Version   Height   PrevHash   MerkleRoot   Timestamp   Bits(nBits)   Nonce</code></pre>
+    <h3>Transação (UTXO)</h3>
+    <p><code>Tx</code> é composta de <code>TxIn</code> / <code>TxOut</code> / <code>OutPoint</code>, mais a coinbase. Não há sistema de scripts — só pay-to-pubkey-hash estrutural.</p>
+    <div class="callout">
+      <p class="tag">Sighash (SIGHASH_ALL simplificado)</p>
+      <p>A assinatura cobre o SHA-256d da tx com o campo <code>sig</code> vazio e o slot da pubkey substituído pelo <code>PubKeyHash</code> do output referenciado.</p>
+    </div>
+    <h3>Endereço — Base58Check</h3>
+    <pre><code>versão <span class="b">0x37</span>  +  SHA-256(pubkey)[:20]  +  checksum SHA-256d[:4]   ──base58──▶  <span class="g">"P..."</span></code></pre>
+
+    <h2 id="chain">Chain &amp; storage <a class="anchor" href="#chain">#</a></h2>
+    <p>O estado vive em <strong>bbolt</strong> (single-file, ACID, pure Go), organizado em buckets KV:</p>
+    <table>
+      <thead><tr><th>Bucket</th><th>Guarda</th></tr></thead>
+      <tbody>
+        <tr><td><code>blocks</code></td><td>blocos completos por hash</td></tr>
+        <tr><td><code>blockIndex</code></td><td>metadados/altura por hash</td></tr>
+        <tr><td><code>heightIndex</code></td><td>hash por altura (cadeia principal)</td></tr>
+        <tr><td><code>utxo</code></td><td>o UTXO set (saldo verificável)</td></tr>
+        <tr><td><code>undo</code></td><td>undo sets para reorg</td></tr>
+        <tr><td><code>meta</code></td><td>tip, ponteiros de estado</td></tr>
+      </tbody>
+    </table>
+    <p><code>AcceptBlock</code> valida cada classe de regra antes de conectar: PoW, merkle root, timestamps (MTP-11 / +2 min), <code>coinbase = subsidy + fees</code>, existência de UTXO, assinaturas, e maturidade de coinbase (10 blocos). Forks se resolvem por <strong>trabalho acumulado</strong>; o reorg desfaz blocos via undo sets e reaplica a cadeia vencedora.</p>
+
+    <h2 id="dificuldade">Dificuldade &amp; retarget <a class="anchor" href="#dificuldade">#</a></h2>
+    <p>A cada 100 blocos, todo nó faz a mesma conta determinística:</p>
+    <pre><code>novo alvo = alvo atual × (tempo real dos últimos 100 blocos ÷ 100 min esperados)
+            <span class="c">// com clamp de 4× / ¼× por retarget</span>
+trabalho  = 2^256 / (target + 1)</code></pre>
+    <ul>
+      <li>Rede cresceu → blocos rápidos demais → alvo cai → mais difícil → volta a ~60 s/bloco.</li>
+      <li>Rede encolheu → blocos lentos → alvo sobe → mais fácil → volta a ~60 s/bloco.</li>
+      <li>O ritmo de emissão (e o halving) é <strong>imune</strong> ao tamanho da rede.</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="mempool">Mempool <a class="anchor" href="#mempool">#</a></h2>
+    <p>Pool de transações pendentes validado por <code>txid</code>, com proteção anti double-spend e ordenação por <strong>fee rate</strong>. Transações são removidas quando o bloco que as inclui conecta (<em>evict</em>), e restauradas se um reorg desfizer esse bloco (<em>restore</em>).</p>
+
+    <h2 id="wallet">Wallet &amp; identidade <a class="anchor" href="#wallet">#</a></h2>
+    <p>Geração de chaves P-256; a chave privada é persistida em <code>wallet.json</code> com permissão <code>0600</code>. <code>BuildTx</code> faz seleção de UTXOs <em>largest-first</em>, calcula o troco (change) e assina input por input.</p>
+    <div class="callout lume">
+      <p class="tag">A revolução do perfil</p>
+      <p>Na visão da Zhu, a wallet deixa de ser "arquivo que guarda dinheiro" e vira <strong>perfil</strong>: uma identidade, dois poderes — <strong>valor</strong> (Zhu) e <strong>voz</strong> (Nostr). A camada social não entra na chain (isso mataria "um node em cada casa"); a chave é a <em>ponte</em>, não a chain. Decisão de formato de wallet ainda em aberto: unificar em secp256k1 (endereço Zhu + npub) ou manter P-256 e derivar a chave Nostr do mesmo seed.</p>
+    </div>
+
+    <h2 id="p2p">Protocolo P2P <a class="anchor" href="#p2p">#</a></h2>
+    <p>TCP puro, envelope JSON com length-prefix de 4 bytes (frame máx 1 MiB). Máximo de 8 peers. O codec é testável com <code>net.Pipe</code>.</p>
+    <pre><code><span class="c">// handshake</span>     version · verack
+<span class="c">// keepalive</span>    ping · pong
+<span class="c">// descoberta</span>   addr · getaddr
+<span class="c">// gossip</span>       inv · getdata · block · tx
+<span class="c">// sync (IBD)</span>   getheaders · headers
+<span class="c">// erro</span>         reject</code></pre>
+    <p>O hash do genesis vai no handshake <code>version</code> como <strong>ID da rede</strong> — é assim que todos concordam no bloco 0 e rejeitam nós de outra chain.</p>
+
+    <h2 id="sync">Sincronização (IBD) <a class="anchor" href="#sync">#</a></h2>
+    <p>Initial Block Download: o nó pede <code>getheaders</code> com um <em>locator</em>, recebe os <code>headers</code> (96 B cada) e então baixa os corpos em janelas de 16. O Argon2 é verificado no <strong>bloco completo</strong>, não no header isolado. Forks convergem para a cadeia de mais trabalho.</p>
+    <div class="callout">
+      <p class="tag">A voz do Zhu no CLI</p>
+      <p>Durante o IBD, o node fala como o guardião: <code>Zhu está sincronizando os blocos — vá tomar um café.</code> Quando sobe: <code>Lanterna acesa.</code> Sem peers: <code>Nenhum vizinho encontrado ainda. Zhu continua procurando.</code></p>
+    </div>
+
+    <h2 id="tor">Tor &amp; privacidade <a class="anchor" href="#tor">#</a></h2>
+    <p>O node tem <strong>suporte nativo a Tor</strong> — esconde o IP dos dois lados (de quem conecta em você e de quem você conecta), sem <code>torsocks</code>, igual em Linux, macOS e Windows. É a resposta para NAT/CGNAT e para não expor porta nenhuma. Dois flags fazem tudo:</p>
+    <ul>
+      <li><code>-proxy</code> — roteia <strong>toda</strong> conexão de saída pelo SOCKS5 do Tor (e é o Tor quem resolve os <code>.onion</code>).</li>
+      <li><code>-advertise</code> — faz um <em>hidden service</em> anunciar o seu <code>.onion</code> aos peers, em vez do endereço local.</li>
+    </ul>
+
+    <h3>1 · Instalar o Tor</h3>
+    <pre><code>sudo apt install tor          <span class="c"># Linux (Debian/Ubuntu)</span>
+brew install tor              <span class="c"># macOS</span>
+<span class="c"># Windows: "Tor Expert Bundle" (torproject.org)</span></code></pre>
+
+    <h3>2 · Receber conexões como hidden service</h3>
+    <p>Aponte um serviço onion para a porta P2P local, no <code>torrc</code> (<code>/etc/tor/torrc</code> no Linux, <code>/opt/homebrew/etc/tor/torrc</code> no macOS Apple Silicon):</p>
+    <pre><code><span class="c"># torrc</span>
+HiddenServiceDir /var/lib/tor/zhu/
+HiddenServicePort <span class="b">9551</span> 127.0.0.1:<span class="b">9551</span></code></pre>
+    <p>Reinicie o Tor (<code>sudo systemctl restart tor</code> / <code>brew services restart tor</code>), leia o seu endereço onion e suba o node aceitando <strong>só o Tor local</strong>, anunciando o <code>.onion</code>:</p>
+    <pre><code>sudo cat /var/lib/tor/zhu/hostname     <span class="c"># → zhuxyz...def.onion</span>
+
+<span class="c"># mundo externo não vê a porta — só o onion chega, via Tor</span>
+zhu run -listen 127.0.0.1:9551 -advertise <span class="g">zhuxyz...def.onion:9551</span></code></pre>
+    <p>Compartilhe <code>zhuxyz...def.onion:9551</code> com os amigos — sem <code>-advertise</code> o node anunciaria o <code>127.0.0.1</code> local (inútil para os outros); com ele, o peer exchange espalha o seu onion pela rede.</p>
+
+    <h3>3 · Conectar em peers .onion</h3>
+    <p>Quem disca para um <code>.onion</code> aponta o <code>-proxy</code> para o SOCKS5 do Tor local (porta 9050) — o destino é resolvido pelo próprio Tor, nenhum IP vaza:</p>
+    <pre><code>zhu run -proxy 127.0.0.1:9050 -peers <span class="g">zhuxyz...def.onion:9551</span> -listen ""</code></pre>
+    <p>No <code>zhu.conf</code> são as chaves <code>proxy=</code> e <code>advertise=</code> (e há env <code>ZHU_PROXY</code> / <code>ZHU_ADVERTISE</code>). Faça os dois lados — hidden service <em>e</em> <code>-proxy</code> — e ninguém expõe IP.</p>
+
+    <div class="callout lume">
+      <p class="tag">Trade-offs honestos</p>
+      <p>Latência via Tor é maior e o circuito demora alguns segundos para nascer: o sync inicial fica mais lento. Com <code>-proxy</code>, <strong>toda</strong> a saída passa pelo Tor de propósito (para não vazar) — se o daemon <code>tor</code> não estiver rodando, o node fica sem peers. Para uma rede de amigos em LAN, Tor é opcional; para atravessar 4G/CGNAT sem abrir porta, é a saída.</p>
+    </div>
+
+    <hr>
+
+    <h2 id="miner">Miner <a class="anchor" href="#miner">#</a></h2>
+    <p>Worker pool com <strong>1 worker por padrão</strong> (~64 MiB de Argon2). Monta o template a partir do mempool (transações ordenadas por fee), busca um nonce válido, e <strong>reinicia</strong> assim que um novo tip aparece. A coinbase paga a wallet do datadir.</p>
+    <div class="pill-row">
+      <span class="pill p">minera por padrão</span>
+      <span class="pill">opt-out: <code>--mine=false</code></span>
+      <span class="pill">workers: <code>--miners N</code></span>
+    </div>
+
+    <h2 id="rpc">RPC &amp; CLI <a class="anchor" href="#rpc">#</a></h2>
+    <p>A CLI conversa com o node em execução via <strong>RPC JSON em localhost</strong> — necessário porque o bbolt aceita um único processo escritor. <code>zhu balance</code> não pode abrir o banco enquanto o node roda, então pergunta pela porta RPC.</p>
+    <div class="callout">
+      <p class="tag">Segurança por construção</p>
+      <p>A RPC é a interface de <strong>controle do dono</strong>, não uma API pública. O bind é <strong>exclusivo em <code>127.0.0.1</code></strong> — recusa qualquer bind fora de loopback. Não há autenticação justamente porque não há como alcançá-la de fora.</p>
+    </div>
+    <pre><code>POST /rpc   {"method": "...", "params": {...}}
+         →  {"result": ...}   |   {"error": {"code","message"}}
+
+<span class="c">// métodos</span>
+getinfo · getbalance · getnewutxos · sendrawtx · sendtoaddress</code></pre>
+    <p>Subcomandos do binário: <code>run</code>, <code>wallet new</code>, <code>wallet address</code>, <code>balance</code>, <code>send</code>, <code>info</code>, <code>genesis</code> (dev-only: minera o gênesis).</p>
+
+    <h2 id="config">Configuração <a class="anchor" href="#config">#</a></h2>
+    <p>Config em camadas, com precedência clara: <strong>flag &gt; arquivo <code>zhu.conf</code> &gt; env <code>ZHU_*</code> &gt; default</strong>.</p>
+    <table>
+      <thead><tr><th>Flag / Env</th><th>Default</th><th>Papel</th></tr></thead>
+      <tbody>
+        <tr><td><code>-datadir</code> / <code>ZHU_DATADIR</code></td><td><code>~/.zhu</code></td><td>chain.db + wallet.json</td></tr>
+        <tr><td><code>-listen</code> / <code>ZHU_LISTEN</code></td><td><code>:9551</code></td><td>endereço P2P (vazio = só saída, OK atrás de NAT)</td></tr>
+        <tr><td><code>-rpc</code> / <code>ZHU_RPC</code></td><td><code>127.0.0.1:8555</code></td><td>RPC local (loopback obrigatório)</td></tr>
+        <tr><td><code>-peers</code> / <code>ZHU_PEERS</code></td><td><span class="c">(lista, vírgula)</span></td><td>peers iniciais host:porta</td></tr>
+        <tr><td><code>-mine</code> / <code>ZHU_MINE</code></td><td><code>true</code></td><td>minerar (opt-out)</td></tr>
+        <tr><td><code>-miners</code> / <code>ZHU_MINERS</code></td><td><code>1</code></td><td>workers (~64 MiB cada)</td></tr>
+        <tr><td><code>-profile</code> / <code>ZHU_PROFILE</code></td><td><code>devnet</code></td><td>perfil de consenso</td></tr>
+        <tr><td><code>-proxy</code> / <code>ZHU_PROXY</code></td><td><span class="c">(vazio = direto)</span></td><td><strong>Tor:</strong> SOCKS5 p/ toda saída (<code>127.0.0.1:9050</code>)</td></tr>
+        <tr><td><code>-advertise</code> / <code>ZHU_ADVERTISE</code></td><td><span class="c">(vazio = o de -listen)</span></td><td><strong>Tor:</strong> anuncia o seu <code>.onion</code> aos peers</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="economia">Economia <a class="anchor" href="#economia">#</a></h2>
+    <p>Parâmetros de ciclo curto para dev, configuráveis por perfil (<code>devnet</code> agora, <code>mainnet</code> de 10 min depois). O ticker é <strong>ZHU</strong>.</p>
+    <table>
+      <thead><tr><th>Parâmetro</th><th>Valor (devnet)</th></tr></thead>
+      <tbody>
+        <tr><td>Tempo de bloco</td><td>~60 s <span class="c">(mainnet: 10 min)</span></td></tr>
+        <tr><td>Halving</td><td>a cada <strong>1.000 blocos</strong></td></tr>
+        <tr><td>Recompensa inicial</td><td><strong>50 ZHU</strong> (5×10⁹ subunidades)</td></tr>
+        <tr><td>Unidade</td><td>1 ZHU = 10⁸ subunidades</td></tr>
+        <tr><td>Retarget</td><td>a cada 100 blocos</td></tr>
+        <tr><td>Supply máximo</td><td>~<strong>100.000 ZHU</strong></td></tr>
+        <tr><td>MaxBlockSize</td><td>256 KiB <span class="c">(regra de consenso)</span></td></tr>
+      </tbody>
+    </table>
+
+    <hr>
+
+    <h2 id="build">Build &amp; execução <a class="anchor" href="#build">#</a></h2>
+    <pre><code><span class="c"># build estático do node</span>
+CGO_ENABLED=0 go build -o bin/zhu ./cmd/node
+
+<span class="c"># subir o node (minera por padrão)</span>
+bin/zhu run -profile devnet
+
+<span class="c"># CLI via RPC localhost</span>
+bin/zhu info | balance | send
+bin/zhu powdemo        <span class="c"># bancada didática de mineração</span></code></pre>
+
+    <h3>Demo de 2 nodes na mesma máquina</h3>
+    <pre><code><span class="c"># terminal 1 — minerador</span>
+./bin/zhu run --profile devnet --datadir ~/.zhu/n1 --listen :9551 --rpc 127.0.0.1:8551 --mine
+
+<span class="c"># terminal 2 — seguidor</span>
+./bin/zhu run --profile devnet --datadir ~/.zhu/n2 --listen :9552 --rpc 127.0.0.1:8552 --peers 127.0.0.1:9551
+
+<span class="c"># terminal 3 — wallet</span>
+./bin/zhu wallet new --datadir ~/.zhu/n2
+./bin/zhu info    --rpc 127.0.0.1:8552    <span class="c"># alturas convergem ⇒ sync ok</span>
+./bin/zhu balance --rpc 127.0.0.1:8551    <span class="c"># cresce conforme coinbases maturam</span>
+./bin/zhu send    --rpc 127.0.0.1:8551 --to P... --amount 1.5
+./bin/zhu balance --rpc 127.0.0.1:8552    <span class="c"># recebe após o próximo bloco</span></code></pre>
+    <p><strong>Sucesso</strong> = o node 2 acompanha altura/tip do node 1, e um <code>send</code> do node 1 aparece no saldo do node 2 após confirmação.</p>
+
+    <h2 id="testes">Testes <a class="anchor" href="#testes">#</a></h2>
+    <p>Cada pacote segue o padrão do repo (<code>service_test.go</code>-equivalente), com <code>go test -race</code> verde. Params de teste (Argon2 de 1 MiB) mantêm a suíte rápida.</p>
+    <pre><code>CGO_ENABLED=0 go build ./...     <span class="c"># estático, incluindo cmd/api existente</span>
+go vet ./... &amp;&amp; go test ./...</code></pre>
+    <ul>
+      <li><strong>M1</strong> params + core + pow — halving soma = max supply; encode round-trip; merkle; nBits; PoW passa/falha; clamp; sign/verify.</li>
+      <li><strong>M2</strong> chain + storage + genesis — aceita blocos válidos, rejeita cada classe inválida, teste de reorg (fork A(3) vs B(4)).</li>
+      <li><strong>M3</strong> wallet + txs + mempool — endereço round-trip, BuildTx, evict/restore.</li>
+      <li><strong>M4</strong> P2P + sync — handshake em <code>net.Pipe</code>, frame gigante rejeitado, 2 nodes in-process sincronizam.</li>
+      <li><strong>M5</strong> miner + CLI + RPC + docs — mineração solo, template reinicia em novo tip, SIGINT fecha bbolt limpo.</li>
+    </ul>
+
+    <div class="footer">
+      <div class="fbrand"><img src="assets/zhu-logo.png" alt="Zhu"><b>Zhu Network</b> · 竹</div>
+      <p>Pequenas luzes. Rede imensa. — documentação técnica · PoW memory-hard · UTXO · Go</p>
+    </div>
+
+  </div>
+  </main>
+</div>
+
+<script>
+  const root=document.documentElement, btn=document.getElementById('themeToggle');
+  const saved=localStorage.getItem('zhu-theme');
+  if(saved) root.setAttribute('data-theme',saved);
+  btn.addEventListener('click',()=>{
+    const cur=root.getAttribute('data-theme')==='dark'?'light':'dark';
+    root.setAttribute('data-theme',cur);localStorage.setItem('zhu-theme',cur);
+  });
+
+  const links=[...document.querySelectorAll('nav.sidebar a')];
+  const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+  const obs=new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        links.forEach(l=>l.classList.remove('active'));
+        const a=map.get(e.target.id); if(a)a.classList.add('active');
+      }
+    });
+  },{rootMargin:'-70px 0px -75% 0px',threshold:0});
+  document.querySelectorAll('main h2[id]').forEach(h=>obs.observe(h));
+</script>
+</body>
+</html>

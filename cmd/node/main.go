@@ -55,6 +55,8 @@ func main() {
 		runGenesis(os.Args[2:])
 	case "wallet":
 		runWallet(os.Args[2:])
+	case "docs":
+		runDocs(os.Args[2:])
 	case "zen":
 		runZen()
 	case "version", "-v", "--version":
@@ -97,6 +99,7 @@ O node de verdade:
             a carteira só com as palavras; words: reexibe as palavras;
             address: reexibe o endereço
   genesis   (dev) minera o bloco 0 de um perfil
+  docs      abre a documentação web da Zhu no navegador (localhost)
   version   versão do binário (definida no build.conf de quem compilou)
   zen       os princípios da rede, uma frase por vez
 
@@ -169,6 +172,8 @@ func helpFor(cmd string) {
 		runRanking([]string{"-h"})
 	case "genesis":
 		runGenesis([]string{"-h"})
+	case "docs":
+		runDocs([]string{"-h"})
 	case "wallet":
 		fmt.Print(`uso: zhu wallet <subcomando> [-file wallet.json | -datadir DIR]
   new       gera chave nova + 12 palavras de backup (nunca sobrescreve)
@@ -194,6 +199,7 @@ func runZen() {
 		"Claro antes de esperto. Coletivo, nunca messiânico.",
 		"Nunca uma promessa de preço — só tecnologia que qualquer casa consegue rodar.",
 		"Se cada vizinho acender a sua lanterna, nenhuma escuridão apaga a rede toda.",
+    "Descentralizados e unidos!",
 	}
 	for _, line := range zen {
 		fmt.Printf("%s\n", line)
