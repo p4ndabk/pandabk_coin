@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"net"
@@ -219,7 +221,11 @@ func TestForksConvergeToHeavierChain(t *testing.T) {
 	b.mine(5)
 
 	a.start()
-	b.s.cfg.Seeds = []string{a.s.Addr()}
+	// seed adicionado pós-construção: entra direto no address book (é de lá
+	// que o maintainLoop disca — cfg.Seeds só é lido no NewServer)
+	b.s.mu.Lock()
+	b.s.addrBook[a.s.Addr()] = &addrEntry{Seed: true}
+	b.s.mu.Unlock()
 	b.start()
 
 	wantTip, _, _ := b.c.Tip() // B tem mais trabalho: A converge para B
@@ -398,8 +404,128 @@ func TestAdvertiseGossipedToPeers(t *testing.T) {
 	waitFor(t, "A aprender o endereço anunciado por B", func() bool {
 		a.s.mu.Lock()
 		defer a.s.mu.Unlock()
-		return a.s.addrBook["zhuxyz.onion:9551"]
+		_, ok := a.s.addrBook["zhuxyz.onion:9551"]
+		return ok
 	})
+}
+
+// ── higiene do address book: backoff, evicção, cap ──────────────────────────
+
+func TestDialFailureBacksOff(t *testing.T) {
+	// porta reservada e fechada na hora: todo dial falha rápido
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead := ln.Addr().String()
+	ln.Close()
+
+	n := newTestNode(t, dead)
+	n.start()
+
+	waitFor(t, "primeira falha de dial registrada", func() bool {
+		n.s.mu.Lock()
+		defer n.s.mu.Unlock()
+		e, ok := n.s.addrBook[dead]
+		return ok && e.Fails >= 1
+	})
+	n.s.mu.Lock()
+	e := n.s.addrBook[dead]
+	fails, next, seed := e.Fails, e.NextTry, e.Seed
+	n.s.mu.Unlock()
+	if !seed {
+		t.Fatal("endereço de -peers deveria estar marcado como seed")
+	}
+	if !next.After(time.Now().Add(-time.Second)) {
+		t.Fatalf("NextTry deveria estar no futuro após falha, veio %v", next)
+	}
+	// backoff cresce: espera algumas falhas e confere que o intervalo entre
+	// tentativas não é mais o tick base (a 3ª falha só vem após ~4× o tick)
+	if fails > 3 {
+		t.Fatalf("com backoff, %d falhas não cabem tão cedo", fails)
+	}
+}
+
+func TestDialSuccessResetsBackoff(t *testing.T) {
+	a := newTestNode(t)
+	a.start()
+
+	b := newTestNode(t, a.s.Addr())
+	// simula histórico ruim antes de ligar: falhas acumuladas no seed
+	b.s.mu.Lock()
+	e := b.s.addrBook[a.s.Addr()]
+	e.Fails = 5
+	b.s.mu.Unlock()
+	b.start()
+
+	waitFor(t, "sucesso zerar as falhas do endereço", func() bool {
+		b.s.mu.Lock()
+		defer b.s.mu.Unlock()
+		e, ok := b.s.addrBook[a.s.Addr()]
+		return ok && e.Fails == 0 && !e.LastSeen.IsZero()
+	})
+}
+
+func TestDeadAddrEvictedSeedStays(t *testing.T) {
+	n := newTestNode(t)
+	s := n.s
+
+	s.mu.Lock()
+	s.addrBook["morto.onion:1"] = &addrEntry{Fails: evictAfterFails - 1}
+	s.addrBook["seed-morto.onion:1"] = &addrEntry{Seed: true, Fails: evictAfterFails + 3}
+	s.mu.Unlock()
+
+	s.noteDialResult("morto.onion:1", false)
+	s.noteDialResult("seed-morto.onion:1", false)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.addrBook["morto.onion:1"]; ok {
+		t.Fatal("endereço morto não-seed deveria ter sido evicto")
+	}
+	e, ok := s.addrBook["seed-morto.onion:1"]
+	if !ok {
+		t.Fatal("seed nunca deve ser evicto, só esperar o backoff")
+	}
+	if !e.NextTry.After(time.Now()) {
+		t.Fatal("seed morto deveria estar em backoff")
+	}
+}
+
+func TestFullBookEvictsWorst(t *testing.T) {
+	n := newTestNode(t)
+	s := n.s
+
+	s.mu.Lock()
+	for i := 0; len(s.addrBook) < maxAddrBook-1; i++ {
+		s.addrBook[fmt.Sprintf("lixo%d.onion:1", i)] = &addrEntry{Fails: 3}
+	}
+	// a pior de todas: mais falhas que o resto — book fica exatamente cheio
+	s.addrBook["pior.onion:1"] = &addrEntry{Fails: 9}
+	s.mu.Unlock()
+
+	env := Envelope{Type: TypeAddr, Payload: mustJSON(t, MsgAddr{Addrs: []string{"novo.onion:1"}})}
+	if err := s.handleAddr(env); err != nil {
+		t.Fatalf("handleAddr: %v", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.addrBook["novo.onion:1"]; !ok {
+		t.Fatal("endereço novo deveria entrar no book cheio (evictando a pior entrada)")
+	}
+	if len(s.addrBook) > maxAddrBook {
+		t.Fatalf("book estourou o cap: %d", len(s.addrBook))
+	}
+}
+
+func mustJSON(t *testing.T, v any) json.RawMessage {
+	t.Helper()
+	raw, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
 }
 
 func TestNewBlockPropagatesViaInv(t *testing.T) {

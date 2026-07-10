@@ -36,6 +36,25 @@ type Config struct {
 	OnBlockAccepted func(b *core.Block)
 }
 
+// Higiene do address book — o "addrman" do Bitcoin em miniatura: falhas
+// consecutivas de dial empurram a próxima tentativa pra frente (backoff
+// exponencial capado) e, persistindo, evictam o endereço do book.
+const (
+	maxAddrBook     = 256       // cap do book; cheio → evicta a pior entrada não-seed
+	maxDialBackoff  = time.Hour // teto do backoff entre tentativas
+	evictAfterFails = 10        // falhas consecutivas até evicção (seeds nunca saem)
+)
+
+// addrEntry é o estado de qualidade de um endereço do address book. O estado
+// é só de runtime: a persistência guarda apenas os endereços, então no boot
+// todo mundo volta zerado (elegível de imediato).
+type addrEntry struct {
+	Seed     bool      // veio de -peers/config: nunca evicto
+	LastSeen time.Time // último handshake outbound bem-sucedido (zero = nunca conectou)
+	Fails    int       // falhas consecutivas de dial/handshake
+	NextTry  time.Time // não discar antes disso (backoff)
+}
+
 // Server conecta a chain e o mempool locais à rede: gossip de blocos/txs por
 // inv/getdata, sync inicial por headers e peer exchange.
 type Server struct {
@@ -57,7 +76,7 @@ type Server struct {
 	peers     map[string]*peerConn
 	dialing   map[string]bool
 	requested map[[32]byte]time.Time // dedup de getdata disparados por inv
-	addrBook  map[string]bool
+	addrBook  map[string]*addrEntry
 }
 
 func NewServer(cfg Config, c *chain.Chain, mp *mempool.Mempool, p params.Params) *Server {
@@ -82,11 +101,20 @@ func NewServer(cfg Config, c *chain.Chain, mp *mempool.Mempool, p params.Params)
 		peers:     make(map[string]*peerConn),
 		dialing:   make(map[string]bool),
 		requested: make(map[[32]byte]time.Time),
-		addrBook:  make(map[string]bool),
+		addrBook:  make(map[string]*addrEntry),
+	}
+	// Seeds moram no book como todo mundo (ganham backoff), mas marcados:
+	// nunca são evictos — são a âncora configurada pelo dono do node.
+	for _, a := range cfg.Seeds {
+		if a != "" {
+			s.addrBook[a] = &addrEntry{Seed: true}
+		}
 	}
 	if saved, err := c.LoadAddrBook(); err == nil {
 		for _, a := range saved {
-			s.addrBook[a] = true
+			if _, ok := s.addrBook[a]; !ok && a != "" {
+				s.addrBook[a] = &addrEntry{}
+			}
 		}
 	}
 	return s
@@ -245,29 +273,44 @@ func (s *Server) maintainLoop() {
 }
 
 func (s *Server) dialMissing() {
-	targets := append([]string{}, s.cfg.Seeds...)
+	now := time.Now()
 	s.mu.Lock()
-	for a := range s.addrBook {
-		targets = append(targets, a)
-	}
 	outbound := 0
 	for _, pc := range s.peers {
 		if pc.outbound {
 			outbound++
 		}
 	}
-	var toDial []string
-	seen := map[string]bool{}
-	for _, t := range targets {
-		if t == "" || t == s.advertise || seen[t] || s.dialing[t] {
+	// Candidatos: quem não está sendo discado (ou conectado — dialing só é
+	// liberado quando o setupPeer da conexão termina) e já cumpriu o backoff.
+	type cand struct {
+		addr string
+		e    *addrEntry
+	}
+	var cands []cand
+	for a, e := range s.addrBook {
+		if a == s.advertise || s.dialing[a] || now.Before(e.NextTry) {
 			continue
 		}
-		seen[t] = true
+		cands = append(cands, cand{a, e})
+	}
+	// Seeds primeiro; depois quem conectou com sucesso há menos tempo.
+	sort.Slice(cands, func(i, j int) bool {
+		if cands[i].e.Seed != cands[j].e.Seed {
+			return cands[i].e.Seed
+		}
+		if !cands[i].e.LastSeen.Equal(cands[j].e.LastSeen) {
+			return cands[i].e.LastSeen.After(cands[j].e.LastSeen)
+		}
+		return cands[i].addr < cands[j].addr
+	})
+	var toDial []string
+	for _, c := range cands {
 		if outbound+len(toDial) >= s.cfg.MaxPeers {
 			break
 		}
-		s.dialing[t] = true
-		toDial = append(toDial, t)
+		s.dialing[c.addr] = true
+		toDial = append(toDial, c.addr)
 	}
 	s.mu.Unlock()
 
@@ -277,13 +320,49 @@ func (s *Server) dialMissing() {
 			defer s.wg.Done()
 			conn, err := s.dial(addr)
 			if err != nil {
+				s.noteDialResult(addr, false)
 				s.mu.Lock()
-				delete(s.dialing, addr) // tenta de novo no próximo tick
+				delete(s.dialing, addr) // tenta de novo quando o backoff vencer
 				s.mu.Unlock()
 				return
 			}
 			s.setupPeer(conn, addr, true)
 		}(target)
+	}
+}
+
+// noteDialResult atualiza a qualidade de um endereço após uma tentativa de
+// saída: sucesso zera o backoff e carimba LastSeen; falha dobra a espera
+// (15s, 30s, 1m... capado em maxDialBackoff) e, na evictAfterFails-ésima
+// seguida, evicta o endereço — seeds nunca são evictos, só esperam.
+func (s *Server) noteDialResult(addr string, ok bool) {
+	s.mu.Lock()
+	e, known := s.addrBook[addr]
+	if !known {
+		s.mu.Unlock()
+		return
+	}
+	evicted := false
+	if ok {
+		e.Fails = 0
+		e.NextTry = time.Time{}
+		e.LastSeen = time.Now()
+	} else {
+		e.Fails++
+		if e.Fails >= evictAfterFails && !e.Seed {
+			delete(s.addrBook, addr)
+			evicted = true
+		} else {
+			backoff := s.cfg.RedialInterval << uint(min(e.Fails-1, 8))
+			if backoff > maxDialBackoff {
+				backoff = maxDialBackoff
+			}
+			e.NextTry = time.Now().Add(backoff)
+		}
+	}
+	s.mu.Unlock()
+	if evicted {
+		s.persistAddrBook()
 	}
 }
 
@@ -315,6 +394,9 @@ func (s *Server) setupPeer(conn net.Conn, addr string, outbound bool) {
 		if !errors.Is(err, ErrSelfConnection) {
 			log.Printf("⚠️  handshake com %s falhou: %v", addr, err)
 		}
+		if outbound {
+			s.noteDialResult(addr, false) // porta aberta mas peer podre: mesmo backoff
+		}
 		_ = conn.Close()
 		return
 	}
@@ -328,9 +410,16 @@ func (s *Server) setupPeer(conn net.Conn, addr string, outbound bool) {
 	}
 	s.peers[addr] = pc
 	if remote.ListenAddr != "" && remote.ListenAddr != s.advertise {
-		s.addrBook[remote.ListenAddr] = true
+		// Só cria se for novo: reaprender um endereço não reseta o backoff
+		// dele (senão re-anunciar um endereço morto o ressuscitaria).
+		if _, ok := s.addrBook[remote.ListenAddr]; !ok {
+			s.addrBook[remote.ListenAddr] = &addrEntry{}
+		}
 	}
 	s.mu.Unlock()
+	if outbound {
+		s.noteDialResult(addr, true)
+	}
 	s.persistAddrBook()
 
 	dir := "entrada"
@@ -482,16 +571,41 @@ func (s *Server) handleAddr(env Envelope) error {
 	}
 	s.mu.Lock()
 	for _, a := range msg.Addrs {
-		if len(s.addrBook) >= 256 {
-			break
+		if a == "" || a == s.advertise {
+			continue
 		}
-		if a != "" && a != s.advertise {
-			s.addrBook[a] = true
+		if _, ok := s.addrBook[a]; ok {
+			continue // já conhecido: não reseta o backoff (ver setupPeer)
 		}
+		if len(s.addrBook) >= maxAddrBook && !s.evictWorstLocked() {
+			break // cheio e só sobraram seeds: descarta os novos
+		}
+		s.addrBook[a] = &addrEntry{}
 	}
 	s.mu.Unlock()
 	s.persistAddrBook()
 	return nil
+}
+
+// evictWorstLocked abre espaço no book removendo a pior entrada não-seed:
+// mais falhas primeiro; empate → LastSeen mais antigo (nunca-conectado perde
+// de quem já conectou). Chamar com s.mu travado. false = só restam seeds.
+func (s *Server) evictWorstLocked() bool {
+	var worst string
+	var we *addrEntry
+	for a, e := range s.addrBook {
+		if e.Seed {
+			continue
+		}
+		if we == nil || e.Fails > we.Fails || (e.Fails == we.Fails && e.LastSeen.Before(we.LastSeen)) {
+			worst, we = a, e
+		}
+	}
+	if we == nil {
+		return false
+	}
+	delete(s.addrBook, worst)
+	return true
 }
 
 func (s *Server) handleInv(pc *peerConn, env Envelope) error {

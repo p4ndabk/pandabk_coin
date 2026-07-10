@@ -25,7 +25,12 @@ Mecânicas centrais:
   partir da ponta, para achar o ponto em comum), depois os corpos dos blocos
   em janelas. Valida e conecta em ordem.
 - **Peer exchange**: peers trocam endereços de outros peers (`getaddr`/`addr`),
-  então basta conhecer um nó para descobrir a rede.
+  então basta conhecer um nó para descobrir a rede. O **address book** guarda
+  esses endereços com um mínimo de memória de qualidade (falhas consecutivas,
+  última conexão boa) — é o "addrman" do Bitcoin em miniatura: endereço que
+  falha espera cada vez mais para ser rediscado (backoff exponencial) e, se
+  nunca responde, é esquecido. Assim a rede se **auto-recupera**: se o seed
+  configurado cair, o node continua discando os endereços que aprendeu.
 
 ## Decisões & porquês (regra e arquitetura)
 
@@ -81,6 +86,18 @@ requisito de que o node doméstico atrás de NAT seja cidadão pleno.
   memória e banda do node caseiro por construção. Ban score/misbehavior é
   evolução futura declarada — o mínimo viável fecha os abusos óbvios sem a
   complexidade de um sistema de reputação.
+- **Address book com backoff exponencial e evicção — sem buckets tried/new.**
+  Cada endereço carrega `Fails`/`NextTry`/`LastSeen` (só em runtime; persiste-se
+  apenas a lista de endereços). Falha de dial dobra a espera (15s → 30s → ... →
+  1h); na 10ª falha seguida o endereço é evicto — exceto **seeds** (`-peers`),
+  que são a âncora do dono do node: entram em backoff mas nunca saem. Com o
+  book cheio (256), um endereço novo evicta a pior entrada não-seed (mais
+  falhas; empate → visto há mais tempo) em vez de ser descartado — senão lixo
+  anunciado por um peer malicioso ocuparia as vagas para sempre. Reaprender um
+  endereço já conhecido **não** reseta o backoff dele (re-anunciar um morto não
+  o ressuscita). É a essência do addrman do Bitcoin sem os buckets
+  tried/new, feelers e aleatorização — proteção anti-eclipse completa fica como
+  evolução futura, junto do ban score.
 
 ## Objetivo
 
@@ -98,9 +115,10 @@ Entra:
   funciona sobre `io.ReadWriter` (testável com `net.Pipe`)
 - `peer.go` — loop por peer, estado do handshake, ping/pong a cada 2 min
   (drop após 2 falhas), detecção de auto-conexão por nonce
-- `server.go` — listener TCP, dial dos seeds (`--peers` primeiro), peer
-  manager (máx 8 outbound), address book persistido no bucket `meta` da chain,
-  gossip de `addr` (até 32 endereços); toda saída pode passar por um proxy
+- `server.go` — listener TCP, peer manager (máx 8 outbound; seeds do
+  `--peers` com prioridade), address book persistido no bucket `meta` da
+  chain com backoff exponencial por endereço e evicção de mortos (seeds nunca
+  saem), gossip de `addr` (até 32 endereços); toda saída pode passar por um proxy
   SOCKS5 (`Config.Proxy` — o Tor, com o proxy resolvendo `.onion`), e
   `Config.Advertise` troca o endereço anunciado no handshake (um hidden
   service divulga o `.onion`, não o `127.0.0.1` local)
@@ -165,6 +183,11 @@ func (s *Server) PeerCount() int
 - Genesis/protocol mismatch → `reject` + drop imediato
 - Auto-conexão (nonce igual) → drop silencioso
 - Peer que não responde ping 2× → drop; peer manager redisca do address book
+  (respeitando o backoff do endereço)
+- Endereço que falha dial/handshake → backoff exponencial (15s → ... → 1h);
+  10 falhas seguidas → evicto do book (seed nunca — só espera o backoff)
+- Address book cheio (256) + endereço novo → evicta a pior entrada não-seed
+- `addr` re-anunciando endereço já conhecido → ignorado (não reseta o backoff)
 - Headers que não encadeiam ou com bits errados → drop do peer
 - Dois peers anunciando o mesmo bloco → um único `getdata` (dedup por ID)
 
@@ -180,6 +203,9 @@ func (s *Server) PeerCount() int
       para a cadeia de mais trabalho
 - [x] Integração: tx submetida em A aparece no mempool de B (+ bloco novo
       propaga via inv/getdata)
+- [x] Teste: falha de dial incrementa `Fails` e empurra `NextTry` (backoff);
+      sucesso zera; morto não-seed é evicto e seed permanece; book cheio
+      evicta a pior entrada ao aprender endereço novo
 - [x] `go test -race` verde
 
 ## Fora de escopo / não fazer
