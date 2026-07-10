@@ -63,6 +63,8 @@ func (n *Node) dispatch(req rpcRequest) (any, error) {
 	switch req.Method {
 	case "getinfo":
 		return n.rpcGetInfo()
+	case "getpeers":
+		return n.rpcGetPeers()
 	case "getbalance":
 		return n.rpcGetBalance(req.Params)
 	case "getblock":
@@ -129,6 +131,42 @@ func (n *Node) rpcGetInfo() (any, error) {
 		info.Address = n.wallet.Address()
 	}
 	return info, nil
+}
+
+// ── getpeers (os vizinhos: quem está conectado e quem a rede conhece) ──────
+
+type peerResult struct {
+	Addr          string `json:"addr"`
+	Direction     string `json:"direction"` // "in" (nos conectou) | "out" (nós conectamos)
+	ListenAddr    string `json:"listen_addr,omitempty"`
+	Height        uint64 `json:"height"` // altura declarada no handshake
+	Protocol      uint32 `json:"protocol"`
+	ConnectedSecs int64  `json:"connected_seconds"`
+}
+
+type peersResult struct {
+	Peers      []peerResult `json:"peers"`
+	KnownAddrs []string     `json:"known_addrs"` // address book (peer exchange)
+}
+
+func (n *Node) rpcGetPeers() (any, error) {
+	infos := n.srv.Peers()
+	res := peersResult{Peers: make([]peerResult, 0, len(infos)), KnownAddrs: n.srv.KnownAddrs()}
+	for _, pi := range infos {
+		dir := "in"
+		if pi.Outbound {
+			dir = "out"
+		}
+		res.Peers = append(res.Peers, peerResult{
+			Addr:          pi.Addr,
+			Direction:     dir,
+			ListenAddr:    pi.ListenAddr,
+			Height:        pi.Height,
+			Protocol:      pi.Protocol,
+			ConnectedSecs: int64(pi.Connected / time.Second),
+		})
+	}
+	return res, nil
 }
 
 // ── getblock (o explorador: um bloco e suas transações por dentro) ─────────

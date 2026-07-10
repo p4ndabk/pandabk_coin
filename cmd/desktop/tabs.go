@@ -384,6 +384,79 @@ func formatBlock(b blockResp) string {
 	return s.String()
 }
 
+// ── Rede (peers) ────────────────────────────────────────────────────────────
+
+// peersTab é a tela da vizinhança: quem está conectado agora (direção,
+// altura declarada, tempo de conexão, endereço anunciado) e o address book —
+// os endereços que o node aprendeu por peer exchange, mesmo desconectados.
+func (u *ui) peersTab() fyne.CanvasObject {
+	grid := container.NewGridWithColumns(2,
+		u.card("peerscount", "peers conectados"),
+		u.card("knowncount", "endereços conhecidos"),
+	)
+
+	u.peersList = widget.NewLabel("…")
+	u.peersList.TextStyle = fyne.TextStyle{Monospace: true}
+	u.peersList.Wrapping = fyne.TextWrapWord
+
+	u.peersKnown = widget.NewLabel("…")
+	u.peersKnown.TextStyle = fyne.TextStyle{Monospace: true}
+	u.peersKnown.Wrapping = fyne.TextWrapWord
+
+	hint := widget.NewLabel("Cada peer é outra lanterna acesa. \"Saída\" é conexão que este node abriu; \"entrada\" é vizinho que chegou até você. A altura é a declarada no momento da conexão.")
+	hint.Wrapping = fyne.TextWrapWord
+
+	return container.NewVScroll(container.NewPadded(container.NewVBox(
+		grid,
+		hint,
+		widget.NewSeparator(),
+		caption("CONECTADOS AGORA", u.muted()),
+		u.peersList,
+		widget.NewSeparator(),
+		caption("ADDRESS BOOK — APRENDIDOS POR PEER EXCHANGE", u.muted()),
+		u.peersKnown,
+	)))
+}
+
+func formatPeers(peers []peerResp) string {
+	if len(peers) == 0 {
+		return "nenhum peer conectado — a lanterna está acesa, mas sozinha.\naponte vizinhos em Ajustes (peers) ou aguarde o address book."
+	}
+	var s strings.Builder
+	for _, p := range peers {
+		dir := "entrada"
+		if p.Direction == "out" {
+			dir = "saída"
+		}
+		fmt.Fprintf(&s, "%-24s %-8s altura %-8d há %s", p.Addr, dir, p.Height, formatConnSecs(p.ConnectedSecs))
+		if p.ListenAddr != "" && p.ListenAddr != p.Addr {
+			fmt.Fprintf(&s, "  anuncia %s", p.ListenAddr)
+		}
+		s.WriteByte('\n')
+	}
+	return strings.TrimRight(s.String(), "\n")
+}
+
+func formatKnownAddrs(addrs []string) string {
+	if len(addrs) == 0 {
+		return "nenhum ainda — o address book cresce conforme os peers trocam endereços"
+	}
+	return strings.Join(addrs, "\n")
+}
+
+// formatConnSecs mostra o tempo de conexão sem ruído: 42s, 5m02s, 3h07m.
+func formatConnSecs(secs int64) string {
+	d := time.Duration(secs) * time.Second
+	switch {
+	case d < time.Minute:
+		return fmt.Sprintf("%ds", secs)
+	case d < time.Hour:
+		return fmt.Sprintf("%dm%02ds", secs/60, secs%60)
+	default:
+		return fmt.Sprintf("%dh%02dm", secs/3600, (secs%3600)/60)
+	}
+}
+
 // ── Atividade ───────────────────────────────────────────────────────────────
 
 func (u *ui) logsTab() fyne.CanvasObject {

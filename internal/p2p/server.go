@@ -149,6 +149,53 @@ func (s *Server) PeerCount() int {
 	return len(s.peers)
 }
 
+// PeerInfo é o retrato de um vizinho conectado — o que o RPC getpeers e as
+// telas mostram. Height é a altura DECLARADA no handshake (não acompanha o
+// sync do peer depois disso).
+type PeerInfo struct {
+	Addr       string        // endereço remoto (o discado, se outbound)
+	Outbound   bool          // true = conexão que nós abrimos
+	ListenAddr string        // endereço que o peer anuncia ("" = outbound-only)
+	Height     uint64        // altura declarada no handshake
+	Protocol   uint32        // versão de protocolo do peer
+	Connected  time.Duration // há quanto tempo a conexão está de pé
+}
+
+// Peers lista os vizinhos conectados, ordenados por endereço (estável entre
+// chamadas — bom para telas que atualizam em loop).
+func (s *Server) Peers() []PeerInfo {
+	now := time.Now()
+	s.mu.Lock()
+	out := make([]PeerInfo, 0, len(s.peers))
+	for _, pc := range s.peers {
+		out = append(out, PeerInfo{
+			Addr:       pc.addr,
+			Outbound:   pc.outbound,
+			ListenAddr: pc.ver.ListenAddr,
+			Height:     pc.ver.Height,
+			Protocol:   pc.ver.Protocol,
+			Connected:  now.Sub(pc.since),
+		})
+	}
+	s.mu.Unlock()
+	sort.Slice(out, func(i, j int) bool { return out[i].Addr < out[j].Addr })
+	return out
+}
+
+// KnownAddrs é o address book — endereços aprendidos por peer exchange
+// (inclui vizinhos já desconectados). É a visão que o node tem "da rede",
+// além das conexões de agora.
+func (s *Server) KnownAddrs() []string {
+	s.mu.Lock()
+	addrs := make([]string, 0, len(s.addrBook))
+	for a := range s.addrBook {
+		addrs = append(addrs, a)
+	}
+	s.mu.Unlock()
+	sort.Strings(addrs)
+	return addrs
+}
+
 // BroadcastBlock anuncia um bloco (recém-minerado ou conectado) à rede.
 func (s *Server) BroadcastBlock(id [32]byte) {
 	s.relayInv(nil, InvItem{Kind: KindBlock, ID: hashToHex(id)})
@@ -271,7 +318,7 @@ func (s *Server) setupPeer(conn net.Conn, addr string, outbound bool) {
 		_ = conn.Close()
 		return
 	}
-	pc := &peerConn{conn: conn, addr: addr, outbound: outbound, ver: remote, work: peerWork(remote)}
+	pc := &peerConn{conn: conn, addr: addr, outbound: outbound, ver: remote, work: peerWork(remote), since: time.Now()}
 
 	s.mu.Lock()
 	if len(s.peers) >= s.cfg.MaxPeers {

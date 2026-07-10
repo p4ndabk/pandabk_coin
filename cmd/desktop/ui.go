@@ -44,6 +44,8 @@ type ui struct {
 	walletSpend   *canvas.Text
 	walletUTXOs   *widget.Label
 	walletActs    *widget.Label
+	peersList     *widget.Label
+	peersKnown    *widget.Label
 	actsPageLbl   *widget.Label
 	actsPrev      *widget.Button
 	actsNext      *widget.Button
@@ -112,6 +114,21 @@ type mempoolResp struct {
 	FeeRate  float64 `json:"fee_rate"`
 }
 
+// peersResp espelha o getpeers do node: os vizinhos conectados agora + o
+// address book (endereços aprendidos por peer exchange).
+type peerResp struct {
+	Addr          string `json:"addr"`
+	Direction     string `json:"direction"` // "in" | "out"
+	ListenAddr    string `json:"listen_addr"`
+	Height        uint64 `json:"height"`
+	ConnectedSecs int64  `json:"connected_seconds"`
+}
+
+type peersResp struct {
+	Peers      []peerResp `json:"peers"`
+	KnownAddrs []string   `json:"known_addrs"`
+}
+
 type activityResp struct {
 	Height       uint64 `json:"height"`
 	Time         int64  `json:"time"`
@@ -169,6 +186,7 @@ func (u *ui) build() {
 		container.NewTabItemWithIcon("Carteira", theme.AccountIcon(), u.walletTab()),
 		container.NewTabItemWithIcon("Enviar", theme.MailSendIcon(), u.sendTab()),
 		container.NewTabItemWithIcon("Blocos", theme.SearchIcon(), u.blocksTab()),
+		container.NewTabItemWithIcon("Rede", theme.ComputerIcon(), u.peersTab()),
 		container.NewTabItemWithIcon("Atividade", theme.ListIcon(), u.logsTab()),
 		container.NewTabItemWithIcon("Ajustes", theme.SettingsIcon(), u.settingsTab()),
 	)
@@ -235,6 +253,8 @@ func (u *ui) refresh() {
 	recErr := rpcclient.CallTimeout(addr, "getrecentblocks", map[string]int{"count": 10}, &recent, 3*time.Second)
 	var pending []mempoolResp
 	mpErr := rpcclient.CallTimeout(addr, "getmempool", nil, &pending, 3*time.Second)
+	var prs peersResp
+	prErr := rpcclient.CallTimeout(addr, "getpeers", nil, &prs, 3*time.Second)
 
 	// extrato da wallet: varre a chain no node, então só quando há bloco novo
 	if !u.actsFetched || info.Height != u.actsHeight {
@@ -273,6 +293,12 @@ func (u *ui) refresh() {
 		}
 		if mpErr == nil {
 			u.mempoolList.SetText(formatMempoolList(pending))
+		}
+		if prErr == nil {
+			u.setCard("peerscount", formatUint(uint64(len(prs.Peers))))
+			u.setCard("knowncount", formatUint(uint64(len(prs.KnownAddrs))))
+			u.peersList.SetText(formatPeers(prs.Peers))
+			u.peersKnown.SetText(formatKnownAddrs(prs.KnownAddrs))
 		}
 	})
 }

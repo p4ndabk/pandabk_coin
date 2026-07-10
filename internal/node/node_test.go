@@ -208,6 +208,25 @@ func TestDemoTwoNodes(t *testing.T) {
 		t.Fatalf("getinfo de A estranho: %+v", info)
 	}
 
+	// getpeers dos dois lados: A vê B como entrada, B vê A como saída (no
+	// endereço que discou) — e B aprendeu o endereço de A no address book
+	var peersA, peersB peersResult
+	if err := rpcCall(t, a.RPCAddr(), "getpeers", nil, &peersA); err != nil {
+		t.Fatal(err)
+	}
+	if err := rpcCall(t, b.RPCAddr(), "getpeers", nil, &peersB); err != nil {
+		t.Fatal(err)
+	}
+	if len(peersA.Peers) != 1 || peersA.Peers[0].Direction != "in" {
+		t.Fatalf("getpeers de A: esperava 1 peer de entrada, veio %+v", peersA.Peers)
+	}
+	if len(peersB.Peers) != 1 || peersB.Peers[0].Direction != "out" || peersB.Peers[0].Addr != a.P2PAddr() {
+		t.Fatalf("getpeers de B: esperava 1 peer de saída em %s, veio %+v", a.P2PAddr(), peersB.Peers)
+	}
+	if len(peersB.KnownAddrs) == 0 {
+		t.Fatalf("address book de B vazio — deveria conhecer o endereço de A")
+	}
+
 	// extrato: B vê UMA entrada de 1.5 vinda do endereço de A; A vê a saída
 	// de 1.5 para B (com taxa à parte) no meio das recompensas de mineração
 	var actB []activityEntry

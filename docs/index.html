@@ -512,8 +512,9 @@ zhu run -listen 127.0.0.1:9551 -advertise <span class="g">zhuxyz...def.onion:955
          →  {"result": ...}   |   {"error": {"code","message"}}
 
 <span class="c">// métodos</span>
-getinfo · getbalance · getnewutxos · sendrawtx · sendtoaddress</code></pre>
-    <p>Subcomandos do binário: <code>run</code>, <code>wallet new</code>, <code>wallet address</code>, <code>balance</code>, <code>send</code>, <code>info</code>, <code>genesis</code> (dev-only: minera o gênesis).</p>
+getinfo · getpeers · getbalance · getnewutxos · sendrawtx · sendtoaddress</code></pre>
+    <p>Subcomandos do binário: <code>run</code>, <code>wallet new</code>, <code>wallet address</code>, <code>balance</code>, <code>send</code>, <code>info</code>, <code>peers</code>, <code>genesis</code> (dev-only: minera o gênesis).</p>
+    <p><code>zhu peers</code> mostra a vizinhança do node: cada peer conectado com endereço, direção (<em>entrada</em> = ele conectou em você; <em>saída</em> = você discou), altura declarada no handshake e tempo de conexão. Com <code>-known</code>, lista também o <strong>address book</strong> — endereços aprendidos por peer exchange, mesmo desconectados. No app desktop, a mesma visão fica na aba <strong>Rede</strong>.</p>
 
     <h2 id="config">Configuração <a class="anchor" href="#config">#</a></h2>
     <p>Config em camadas, com precedência clara: <strong>flag &gt; arquivo <code>zhu.conf</code> &gt; env <code>ZHU_*</code> &gt; default</strong>.</p>
@@ -570,6 +571,7 @@ bin/zhu powdemo        <span class="c"># bancada didática de mineração</span>
 <span class="c"># terminal 3 — wallet</span>
 ./bin/zhu wallet new --datadir ~/.zhu/n2
 ./bin/zhu info    --rpc 127.0.0.1:8552    <span class="c"># alturas convergem ⇒ sync ok</span>
+./bin/zhu peers   --rpc 127.0.0.1:8552    <span class="c"># quem está conectado (direção, altura, tempo)</span>
 ./bin/zhu balance --rpc 127.0.0.1:8551    <span class="c"># cresce conforme coinbases maturam</span>
 ./bin/zhu send    --rpc 127.0.0.1:8551 --to P... --amount 1.5
 ./bin/zhu balance --rpc 127.0.0.1:8552    <span class="c"># recebe após o próximo bloco</span></code></pre>

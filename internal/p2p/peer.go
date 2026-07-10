@@ -93,6 +93,7 @@ type peerConn struct {
 	outbound bool
 	ver      MsgVersion // version do peer no handshake
 	work     *big.Int   // cum_work declarado no handshake
+	since    time.Time  // quando o handshake completou
 
 	wmu sync.Mutex
 

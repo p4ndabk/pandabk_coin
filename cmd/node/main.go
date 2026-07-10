@@ -39,6 +39,8 @@ func main() {
 		runRun(os.Args[2:])
 	case "info":
 		runInfo(os.Args[2:])
+	case "peers":
+		runPeers(os.Args[2:])
 	case "balance":
 		runBalance(os.Args[2:])
 	case "send":
@@ -91,6 +93,8 @@ O node de verdade:
             mineração LIGADA por padrão (1 worker; -mine=false desliga).
             A coinbase paga a wallet do datadir (criada no primeiro run).
   info      altura/tip/peers/mempool/hashrate do node em execução (via RPC)
+  peers     os vizinhos conectados: endereço, direção, altura e tempo de
+            conexão (-known lista também o address book da rede)
   balance   saldo de um endereço (default: a wallet do node)
   send      envia ZHU: zhu send -to P... -amount 1.5
   block     explora um bloco por dentro: zhu block 42 | zhu block <hash>
@@ -158,6 +162,8 @@ func helpFor(cmd string) {
 		runRun([]string{"-h"})
 	case "info":
 		runInfo([]string{"-h"})
+	case "peers":
+		runPeers([]string{"-h"})
 	case "balance":
 		runBalance([]string{"-h"})
 	case "send":
