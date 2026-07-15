@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	mrand "math/rand/v2"
 	"net"
 	"sort"
 	"sync"
@@ -30,6 +31,7 @@ type Config struct {
 	MaxPeers       int           // default 8
 	PingInterval   time.Duration // default 2 min (drop após 2 pings sem pong)
 	RedialInterval time.Duration // default 15s (manutenção de conexões)
+	AddrInterval   time.Duration // default 10 min (getaddr periódico a um peer)
 
 	// OnBlockAccepted (opcional) é chamado após um bloco da REDE ser aceito
 	// na chain — o node usa para reiniciar o template do miner.
@@ -89,6 +91,9 @@ func NewServer(cfg Config, c *chain.Chain, mp *mempool.Mempool, p params.Params)
 	if cfg.RedialInterval <= 0 {
 		cfg.RedialInterval = 15 * time.Second
 	}
+	if cfg.AddrInterval <= 0 {
+		cfg.AddrInterval = 10 * time.Minute
+	}
 	var nb [8]byte
 	_, _ = rand.Read(nb[:])
 	s := &Server{
@@ -112,7 +117,10 @@ func NewServer(cfg Config, c *chain.Chain, mp *mempool.Mempool, p params.Params)
 	}
 	if saved, err := c.LoadAddrBook(); err == nil {
 		for _, a := range saved {
-			if _, ok := s.addrBook[a]; !ok && a != "" {
+			// isDialableAddr aqui também limpa lixo que entrou no book ANTES
+			// desta validação existir (ex.: endereço coringa relayado por um
+			// peer mal configurado) — o boot já sai com o book saneado.
+			if _, ok := s.addrBook[a]; !ok && isDialableAddr(a) {
 				s.addrBook[a] = &addrEntry{}
 			}
 		}
@@ -366,6 +374,22 @@ func (s *Server) noteDialResult(addr string, ok bool) {
 	}
 }
 
+// isDialableAddr rejeita endereços que não são um alvo de dial válido: sem
+// porta, ou host "qualquer interface" (0.0.0.0, ::) — o erro clássico de
+// anunciar ln.Addr().String() (o endereço de BIND) em vez de configurar
+// -advertise com um host alcançável de fora. Sem este filtro, um único node
+// mal configurado polui o address book da rede inteira via relay.
+func isDialableAddr(addr string) bool {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil || host == "" || port == "" {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsUnspecified() {
+		return false
+	}
+	return true
+}
+
 // dial abre TODA conexão de saída: direta, ou via SOCKS5 quando -proxy está
 // configurado — aí é o proxy quem resolve o destino, então `.onion` funciona
 // e nenhum DNS/TCP vaza fora do Tor. O timeout maior cobre a construção do
@@ -409,11 +433,13 @@ func (s *Server) setupPeer(conn net.Conn, addr string, outbound bool) {
 		return
 	}
 	s.peers[addr] = pc
-	if remote.ListenAddr != "" && remote.ListenAddr != s.advertise {
+	learned := false
+	if remote.ListenAddr != "" && remote.ListenAddr != s.advertise && isDialableAddr(remote.ListenAddr) {
 		// Só cria se for novo: reaprender um endereço não reseta o backoff
 		// dele (senão re-anunciar um endereço morto o ressuscitaria).
 		if _, ok := s.addrBook[remote.ListenAddr]; !ok {
 			s.addrBook[remote.ListenAddr] = &addrEntry{}
+			learned = true
 		}
 	}
 	s.mu.Unlock()
@@ -421,6 +447,11 @@ func (s *Server) setupPeer(conn net.Conn, addr string, outbound bool) {
 		s.noteDialResult(addr, true)
 	}
 	s.persistAddrBook()
+	if learned {
+		// Node recém-chegado é anunciado à vizinhança na hora — sem isso, quem
+		// já estava conectado só descobriria o novato num futuro getaddr.
+		s.relayAddrs(pc, []string{remote.ListenAddr})
+	}
 
 	dir := "entrada"
 	if outbound {
@@ -472,10 +503,17 @@ func (s *Server) pingLoop() {
 	defer s.wg.Done()
 	t := time.NewTicker(s.cfg.PingInterval)
 	defer t.Stop()
+	// getaddr periódico: rede de fome baixa — o relay (relayAddrs) espalha as
+	// novidades na hora; este refresh só cobre relays perdidos (estávamos
+	// offline, peer caiu no meio) perguntando a UM peer de tempos em tempos.
+	addrT := time.NewTicker(s.cfg.AddrInterval)
+	defer addrT.Stop()
 	for {
 		select {
 		case <-s.ctx.Done():
 			return
+		case <-addrT.C:
+			s.askAddrs()
 		case <-t.C:
 			s.mu.Lock()
 			peers := make([]*peerConn, 0, len(s.peers))
@@ -496,6 +534,21 @@ func (s *Server) pingLoop() {
 			}
 		}
 	}
+}
+
+// askAddrs manda getaddr a um peer aleatório — sorteio para não viciar o
+// refresh sempre na mesma visão da rede.
+func (s *Server) askAddrs() {
+	s.mu.Lock()
+	peers := make([]*peerConn, 0, len(s.peers))
+	for _, pc := range s.peers {
+		peers = append(peers, pc)
+	}
+	s.mu.Unlock()
+	if len(peers) == 0 {
+		return
+	}
+	_ = peers[mrand.IntN(len(peers))].send(TypeGetAddr, nil)
 }
 
 func (s *Server) localVersion() MsgVersion {
@@ -524,7 +577,7 @@ func (s *Server) handle(pc *peerConn, env Envelope) error {
 	case TypeGetAddr:
 		return s.handleGetAddr(pc)
 	case TypeAddr:
-		return s.handleAddr(env)
+		return s.handleAddr(pc, env)
 	case TypeInv:
 		return s.handleInv(pc, env)
 	case TypeGetData:
@@ -564,14 +617,15 @@ func (s *Server) handleGetAddr(pc *peerConn) error {
 	return pc.send(TypeAddr, MsgAddr{Addrs: addrs})
 }
 
-func (s *Server) handleAddr(env Envelope) error {
+func (s *Server) handleAddr(pc *peerConn, env Envelope) error {
 	msg, err := decodePayload[MsgAddr](env)
 	if err != nil {
 		return err
 	}
+	var fresh []string
 	s.mu.Lock()
 	for _, a := range msg.Addrs {
-		if a == "" || a == s.advertise {
+		if a == "" || a == s.advertise || !isDialableAddr(a) {
 			continue
 		}
 		if _, ok := s.addrBook[a]; ok {
@@ -581,10 +635,49 @@ func (s *Server) handleAddr(env Envelope) error {
 			break // cheio e só sobraram seeds: descarta os novos
 		}
 		s.addrBook[a] = &addrEntry{}
+		fresh = append(fresh, a)
 	}
 	s.mu.Unlock()
+	if len(fresh) == 0 {
+		return nil // nada novo: o eco de um relay morre aqui
+	}
 	s.persistAddrBook()
+	s.relayAddrs(pc, fresh)
 	return nil
+}
+
+// relayAddrs repassa endereços recém-aprendidos aos demais peers — o addr
+// relay do Bitcoin em miniatura: uma novidade se espalha pela rede inteira
+// sem que ninguém precise reconectar. Só endereços vistos pela primeira vez
+// chegam aqui, então o eco de volta já é conhecido e não é re-relayado —
+// o gossip converge em vez de circular para sempre.
+func (s *Server) relayAddrs(except *peerConn, addrs []string) {
+	if len(addrs) > MaxAddrPerMsg {
+		addrs = addrs[:MaxAddrPerMsg]
+	}
+	s.mu.Lock()
+	peers := make([]*peerConn, 0, len(s.peers))
+	for _, pc := range s.peers {
+		if pc != except {
+			peers = append(peers, pc)
+		}
+	}
+	s.mu.Unlock()
+	for _, pc := range peers {
+		out := addrs
+		if la := pc.ver.ListenAddr; la != "" {
+			out = make([]string, 0, len(addrs))
+			for _, a := range addrs {
+				if a != la { // não devolve ao peer o endereço dele mesmo
+					out = append(out, a)
+				}
+			}
+		}
+		if len(out) == 0 {
+			continue
+		}
+		_ = pc.send(TypeAddr, MsgAddr{Addrs: out})
+	}
 }
 
 // evictWorstLocked abre espaço no book removendo a pior entrada não-seed:

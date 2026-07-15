@@ -29,7 +29,10 @@ Mecânicas centrais:
   esses endereços com um mínimo de memória de qualidade (falhas consecutivas,
   última conexão boa) — é o "addrman" do Bitcoin em miniatura: endereço que
   falha espera cada vez mais para ser rediscado (backoff exponencial) e, se
-  nunca responde, é esquecido. Assim a rede se **auto-recupera**: se o seed
+  nunca responde, é esquecido. Novidades se espalham por **relay**: um endereço
+  aprendido pela primeira vez (no handshake ou num `addr`) é re-anunciado aos
+  demais vizinhos na hora — um node recém-chegado é conhecido pela rede inteira
+  sem que ninguém reconecte. Assim a rede se **auto-recupera**: se o seed
   configurado cair, o node continua discando os endereços que aprendeu.
 
 ## Decisões & porquês (regra e arquitetura)
@@ -98,6 +101,15 @@ requisito de que o node doméstico atrás de NAT seja cidadão pleno.
   o ressuscita). É a essência do addrman do Bitcoin sem os buckets
   tried/new, feelers e aleatorização — proteção anti-eclipse completa fica como
   evolução futura, junto do ban score.
+- **Addr relay + `getaddr` periódico — descoberta contínua, não só no
+  handshake.** Sem isso, o `getaddr` único do handshake congela a visão da
+  rede: quem conectou primeiro nunca ficaria sabendo de quem chegou depois, e a
+  morte do seed isolaria os antigos. Só endereços **novos no book** são
+  relayados (o eco volta, já é conhecido, morre ali — o gossip converge em vez
+  de circular), nunca o próprio `advertise` nem o endereço do destinatário.
+  Como redundância barata para relays perdidos (node estava offline, peer caiu
+  no meio), um `getaddr` é enviado a UM peer sorteado a cada `AddrInterval`
+  (10 min) — uma mensagem de até 32 endereços; nada que pese no node caseiro.
 
 ## Objetivo
 
@@ -118,7 +130,8 @@ Entra:
 - `server.go` — listener TCP, peer manager (máx 8 outbound; seeds do
   `--peers` com prioridade), address book persistido no bucket `meta` da
   chain com backoff exponencial por endereço e evicção de mortos (seeds nunca
-  saem), gossip de `addr` (até 32 endereços); toda saída pode passar por um proxy
+  saem), gossip de `addr` (até 32 endereços; endereços novos são relayados aos
+  vizinhos e um `getaddr` de refresh sai a cada 10 min); toda saída pode passar por um proxy
   SOCKS5 (`Config.Proxy` — o Tor, com o proxy resolvendo `.onion`), e
   `Config.Advertise` troca o endereço anunciado no handshake (um hidden
   service divulga o `.onion`, não o `127.0.0.1` local)
@@ -187,7 +200,8 @@ func (s *Server) PeerCount() int
 - Endereço que falha dial/handshake → backoff exponencial (15s → ... → 1h);
   10 falhas seguidas → evicto do book (seed nunca — só espera o backoff)
 - Address book cheio (256) + endereço novo → evicta a pior entrada não-seed
-- `addr` re-anunciando endereço já conhecido → ignorado (não reseta o backoff)
+- `addr` re-anunciando endereço já conhecido → ignorado (não reseta o backoff
+  nem é re-relayado — é o que faz o gossip de endereços convergir)
 - Headers que não encadeiam ou com bits errados → drop do peer
 - Dois peers anunciando o mesmo bloco → um único `getdata` (dedup por ID)
 
@@ -206,6 +220,9 @@ func (s *Server) PeerCount() int
 - [x] Teste: falha de dial incrementa `Fails` e empurra `NextTry` (backoff);
       sucesso zera; morto não-seed é evicto e seed permanece; book cheio
       evicta a pior entrada ao aprender endereço novo
+- [x] Integração: node que entra depois é aprendido via relay por quem já
+      estava conectado; seed morre e os demais se conectam entre si; endereço
+      já conhecido não é re-relayado (eco morre)
 - [x] `go test -race` verde
 
 ## Fora de escopo / não fazer

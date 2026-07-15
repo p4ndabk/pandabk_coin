@@ -505,7 +505,7 @@ func TestFullBookEvictsWorst(t *testing.T) {
 	s.mu.Unlock()
 
 	env := Envelope{Type: TypeAddr, Payload: mustJSON(t, MsgAddr{Addrs: []string{"novo.onion:1"}})}
-	if err := s.handleAddr(env); err != nil {
+	if err := s.handleAddr(nil, env); err != nil {
 		t.Fatalf("handleAddr: %v", err)
 	}
 
@@ -516,6 +516,184 @@ func TestFullBookEvictsWorst(t *testing.T) {
 	}
 	if len(s.addrBook) > maxAddrBook {
 		t.Fatalf("book estourou o cap: %d", len(s.addrBook))
+	}
+}
+
+// ── addr relay: descoberta e auto-recuperação sem reconectar ────────────────
+
+func TestNewPeerAddrRelayedToNeighbors(t *testing.T) {
+	s := newTestNode(t)
+	s.start()
+
+	b := newTestNode(t, s.s.Addr())
+	b.start()
+	waitFor(t, "B conectar ao seed", func() bool { return b.s.PeerCount() >= 1 })
+
+	// C entra na rede DEPOIS de B já estar conectado: sem relay, B só saberia
+	// de C num futuro getaddr — com relay, o seed anuncia C na hora.
+	c := newTestNode(t, s.s.Addr())
+	c.start()
+
+	waitFor(t, "B aprender o endereço de C via relay", func() bool {
+		for _, a := range b.s.KnownAddrs() {
+			if a == c.s.Addr() {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+func TestNetworkSurvivesSeedDeath(t *testing.T) {
+	seed := newTestNode(t)
+	seed.start()
+
+	a := newTestNode(t, seed.s.Addr())
+	a.start()
+	b := newTestNode(t, seed.s.Addr())
+	b.start()
+
+	waitFor(t, "A aprender o endereço de B", func() bool {
+		for _, addr := range a.s.KnownAddrs() {
+			if addr == b.s.Addr() {
+				return true
+			}
+		}
+		return false
+	})
+
+	// morre o único peer configurado — o cenário que motivou o address book
+	if err := seed.s.Stop(); err != nil {
+		t.Fatalf("Stop do seed: %v", err)
+	}
+
+	// A e B se conectam entre si a partir do que aprenderam: a rede sobrevive
+	waitFor(t, "A e B conectados entre si sem o seed", func() bool {
+		aToB := false
+		for _, p := range a.s.Peers() {
+			if p.Addr == b.s.Addr() || p.ListenAddr == b.s.Addr() {
+				aToB = true
+			}
+		}
+		return aToB && b.s.PeerCount() >= 1
+	})
+}
+
+func TestKnownAddrNotRerelayed(t *testing.T) {
+	n := newTestNode(t)
+	s := n.s
+
+	// vizinho falso sobre net.Pipe para observar o que o relay envia
+	ours, theirs := net.Pipe()
+	t.Cleanup(func() { ours.Close(); theirs.Close() })
+	s.mu.Lock()
+	s.peers["pipe"] = &peerConn{conn: ours, addr: "pipe", ver: MsgVersion{ListenAddr: "vizinho.onion:1"}}
+	s.mu.Unlock()
+
+	got := make(chan Envelope, 1)
+	readOne := func() {
+		go func() {
+			if env, err := ReadMsg(theirs); err == nil {
+				got <- env
+			}
+		}()
+	}
+
+	env := Envelope{Type: TypeAddr, Payload: mustJSON(t, MsgAddr{Addrs: []string{"novato.onion:1"}})}
+	readOne()
+	if err := s.handleAddr(nil, env); err != nil {
+		t.Fatalf("handleAddr: %v", err)
+	}
+	select {
+	case e := <-got:
+		msg, err := decodePayload[MsgAddr](e)
+		if e.Type != TypeAddr || err != nil || len(msg.Addrs) != 1 || msg.Addrs[0] != "novato.onion:1" {
+			t.Fatalf("relay inesperado: type=%q %+v, %v", e.Type, msg, err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("endereço novo deveria ter sido relayado ao vizinho")
+	}
+
+	// o mesmo endereço de novo (o eco do gossip): já conhecido, morre em silêncio
+	readOne()
+	if err := s.handleAddr(nil, env); err != nil {
+		t.Fatalf("handleAddr: %v", err)
+	}
+	select {
+	case e := <-got:
+		t.Fatalf("eco relayado de volta: type=%q", e.Type)
+	case <-time.After(300 * time.Millisecond):
+		// silêncio esperado: o gossip converge em vez de circular
+	}
+}
+
+// ── validação de endereço: lixo não entra no book nem é relayado ───────────
+
+func TestIsDialableAddr(t *testing.T) {
+	cases := map[string]bool{
+		"192.168.68.101:9551": true,
+		"exemplo.onion:9551":  true,
+		"[::1]:9551":          true, // loopback IPv6 é válido como host, só não é alcançável de fora
+		"[::]:9054":           false, // bind coringa — o bug real observado em produção
+		"0.0.0.0:9551":        false, // bind coringa IPv4
+		"exemplo.onion":       false, // sem porta (advertise mal configurado)
+		"":                    false,
+		":9551":               false, // sem host
+	}
+	for addr, want := range cases {
+		if got := isDialableAddr(addr); got != want {
+			t.Errorf("isDialableAddr(%q) = %v, esperava %v", addr, got, want)
+		}
+	}
+}
+
+func TestHandleAddrRejectsGarbage(t *testing.T) {
+	n := newTestNode(t)
+	s := n.s
+
+	env := Envelope{Type: TypeAddr, Payload: mustJSON(t, MsgAddr{
+		Addrs: []string{"[::]:9054", "sem-porta.onion", "bom.onion:9551"},
+	})}
+	if err := s.handleAddr(nil, env); err != nil {
+		t.Fatalf("handleAddr: %v", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.addrBook["[::]:9054"]; ok {
+		t.Fatal("endereço coringa não deveria entrar no book")
+	}
+	if _, ok := s.addrBook["sem-porta.onion"]; ok {
+		t.Fatal("endereço sem porta não deveria entrar no book")
+	}
+	if _, ok := s.addrBook["bom.onion:9551"]; !ok {
+		t.Fatal("endereço válido deveria ter entrado no book")
+	}
+}
+
+func TestPersistedGarbageFilteredOnLoad(t *testing.T) {
+	p := params.TestNet()
+	c, err := chain.Open(filepath.Join(t.TempDir(), "chain.db"), p)
+	if err != nil {
+		t.Fatalf("chain.Open: %v", err)
+	}
+	t.Cleanup(func() { c.Close() })
+	// simula um book poluído por versões anteriores, sem a validação de hoje
+	if err := c.SaveAddrBook([]string{"[::]:9054", "sem-porta.onion", "bom.onion:9551"}); err != nil {
+		t.Fatalf("SaveAddrBook: %v", err)
+	}
+
+	mp := mempool.New(c, p)
+	s := NewServer(Config{Listen: "127.0.0.1:0"}, c, mp, p)
+
+	if _, ok := s.addrBook["[::]:9054"]; ok {
+		t.Fatal("boot deveria ter descartado o endereço coringa persistido")
+	}
+	if _, ok := s.addrBook["sem-porta.onion"]; ok {
+		t.Fatal("boot deveria ter descartado o endereço sem porta persistido")
+	}
+	if _, ok := s.addrBook["bom.onion:9551"]; !ok {
+		t.Fatal("endereço válido persistido deveria ter sobrevivido ao boot")
 	}
 }
 

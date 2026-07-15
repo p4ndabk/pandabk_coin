@@ -301,6 +301,13 @@ poder ser gasta — regra de consenso). Quem quiser só validar sem minerar:
 `-mine=false`. O `zhu.conf` também funciona aqui (chaves `datadir`,
 `listen`, `rpc`, `peers`/`peer`, `mine`, `miners`, `profile`).
 
+Basta apontar `-peers` para **um** node da rede, uma única vez: ao conectar,
+o node pede a lista de endereços do vizinho, aprende os demais conforme eles
+chegam (novidades são re-anunciadas pela rede na hora) e salva tudo no banco.
+Se o peer configurado cair, ele reconecta sozinho a qualquer outro que tenha
+aprendido — a rede se recompõe sem intervenção manual, como no Bitcoin Core.
+`./bin/zhu peers -known` mostra tanto os conectados quanto o address book.
+
 ### Prefere uma janela?
 
 Existe também o **app de desktop** (`scripts/build-desktop.sh`): a mesma
