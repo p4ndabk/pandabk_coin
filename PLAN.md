@@ -14,10 +14,10 @@ ASICs/fazendas. A resposta técnica é um PoW **memory-hard (Argon2id)**: o garg
 vira banda de memória RAM (commodity) em vez de FLOPS, então um notebook compete
 de igual pra igual e ASIC não compensa — mesma filosofia do RandomX do Monero.
 
-O repo atual é o skeleton base Gin+GORM (módulo `zhu` — o CLAUDE.md
-ainda cita o path antigo). **Decisão**: o node é um binário standalone
-`cmd/node`, sem Gin nem GORM, com storage próprio. O skeleton existente fica
-intocado e compilando (pode virar block explorer no futuro).
+O repo começou como o skeleton base Gin+GORM (módulo `zhu`). **Decisão**: o
+node é um binário standalone `cmd/node`, sem Gin nem GORM, com storage
+próprio. *(Atualização: o skeleton foi removido depois que o node virou o
+único produto do repo — ver [CLAUDE.md](./CLAUDE.md).)*
 
 ## Princípio norteador: um node em cada casa
 
@@ -115,7 +115,7 @@ internal/miner/             worker pool (default 1 worker), template do mempool,
                             restart em novo tip
 internal/node/              config.go (NODE_DATADIR, NODE_LISTEN :9551, NODE_RPC
                             127.0.0.1:8555, NODE_PEERS, NODE_MINE, NODE_MINERS, NODE_PROFILE),
-                            node.go (Start/Stop, graceful shutdown como cmd/api),
+                            node.go (Start/Stop, graceful shutdown),
                             rpc.go (getinfo, getbalance, sendtoaddress)
 ```
 
@@ -168,7 +168,7 @@ módulo — é `zhu`) e README; `go vet`/`go test` verdes.
 ## Verificação
 
 ```sh
-CGO_ENABLED=0 go build ./...   # estático, incluindo cmd/api existente
+CGO_ENABLED=0 go build ./...   # estático
 go vet ./... && go test ./...  # params de teste (1MiB) mantêm rápido
 CGO_ENABLED=0 go build -o bin/node ./cmd/node
 ```

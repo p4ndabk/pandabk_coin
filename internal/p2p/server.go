@@ -427,6 +427,19 @@ func (s *Server) setupPeer(conn net.Conn, addr string, outbound bool) {
 	pc := &peerConn{conn: conn, addr: addr, outbound: outbound, ver: remote, work: peerWork(remote), since: time.Now()}
 
 	s.mu.Lock()
+	select {
+	case <-s.ctx.Done():
+		// Stop() já chamou cancel() antes de fechar s.peers sob o mesmo lock
+		// (ver Stop()): se o handshake terminou depois disso, o laço de
+		// fechamento do Stop() já passou e nunca mais vai rodar — sem este
+		// checar-e-sair sob o MESMO lock, este peer entraria no map e
+		// travaria para sempre em readLoop, esperado por um wg.Wait() que
+		// nunca mais itera os peers.
+		s.mu.Unlock()
+		_ = conn.Close()
+		return
+	default:
+	}
 	if len(s.peers) >= s.cfg.MaxPeers {
 		s.mu.Unlock()
 		_ = conn.Close()

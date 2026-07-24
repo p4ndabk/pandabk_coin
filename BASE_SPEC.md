@@ -1,13 +1,27 @@
-# Spec: <nome do domínio/tarefa>
+# Spec: <nome do pacote/tarefa>
 
-> Modelo de spec para uma nova feature/domínio. Copie este arquivo para
+> Modelo de spec para um novo pacote do node Zhu. Copie este arquivo para
 > `internal/<domínio>/SPEC.md` e preencha antes de implementar. Se uma seção
 > não se aplica, deixe explícito "N/A" em vez de apagar — isso evita spec
-> incompleta por omissão.
+> incompleta por omissão. Veja `internal/p2p/SPEC.md` ou
+> `internal/chain/SPEC.md` como exemplo de como fica depois de adaptado.
+
+## Conceito
+
+Explicação didática do conceito de blockchain/rede que esse pacote
+implementa — o leitor aprende o domínio pelo próprio código. 1-2 parágrafos,
+sem jargão de implementação ainda.
+
+## Decisões & porquês (regra e arquitetura)
+
+As decisões de design não óbvias deste pacote e o motivo de cada uma —
+trade-offs considerados, por que a alternativa mais simples não serviu.
+
+-
 
 ## Objetivo
 
-O que essa feature resolve e por quê. 1-2 frases. Sem detalhe técnico aqui.
+O que esse pacote resolve e por quê. 1-2 frases. Sem detalhe técnico aqui.
 
 ## Escopo
 
@@ -20,59 +34,48 @@ implementa sem voltar e atualizar a spec):
 
 ## Modelo de dados
 
-Campos do `model.go`, tipos e constraints (obrigatório, único, default,
-relacionamento). Só o que já existe hoje — não adiciona campo especulando
-uso futuro.
+Structs/tipos principais, campos e invariantes. Só o que já existe hoje —
+não adiciona campo especulando uso futuro.
 
-| Campo | Tipo | Constraint | Observação |
-|-------|------|------------|------------|
-|       |      |            |            |
+| Campo | Tipo | Observação |
+|-------|------|------------|
+|       |      |            |
 
 ## Regras de negócio
 
-O que vai em `service.go`. Validações, cálculos, condições que não são só
-"salvar no banco". Se for puro CRUD sem regra nenhuma, escreva "N/A — CRUD
-simples".
+Validações, cálculos, condições que o pacote impõe — o que vai no
+`service.go`/lógica principal do pacote.
 
 -
 
-## Endpoints
+## Interface do pacote / CLI
 
-O que vai em `handler.go` + `routes.go`. Um bloco por endpoint.
+Funções exportadas, subcomandos de CLI ou métodos de RPC que este pacote
+expõe. Um bloco por função/comando relevante.
 
-### `<MÉTODO> /api/<caminho>`
-
-- **Request:** corpo/params esperados
-- **Response (sucesso):** status code + shape do JSON
-- **Response (erro):** casos de erro esperados + status code. Erros seguem
-  o envelope compartilhado `apierror.Body` (`{"error":{"code","message"}}`)
-  — ver seção "Error handling" do CLAUDE.md. Nunca devolver `err.Error()`
-  cru pro cliente num 500.
+```go
+func Exemplo(...) (...)
+```
 
 ## Casos de erro / edge cases
 
-Situações que o service/handler precisam tratar explicitamente (ex.: email
-duplicado, registro não encontrado, usuário inativo).
+Situações que o pacote precisa tratar explicitamente (ex.: endereço
+inválido, estado inconsistente, timeout de rede).
 
 -
 
 ## Critérios de aceite
 
-- [ ] `model.go`, `service.go`, `handler.go`, `routes.go` criados seguindo o
-      padrão de `internal/<domínio>/` (ver CLAUDE.md)
-- [ ] `service_test.go` cobrindo as regras de negócio e os edge cases acima
-      (obrigatório — ver seção Testing do CLAUDE.md)
-- [ ] Rotas registradas em `cmd/api/main.go`
-- [ ] Se o domínio tem tabela nova: migration adicionada em
-      `internal/database/migrations/migrations.go` (ver seção Migrations
-      do CLAUDE.md — nunca editar uma migration que já rodou, sempre somar
-      uma nova)
-- [ ] README/CLAUDE.md atualizados se a convenção mudou
+- [ ] Arquivos do pacote criados seguindo o padrão de `internal/<domínio>/`
+      (ver CLAUDE.md)
+- [ ] `service_test.go`-equivalente cobrindo as regras de negócio e os
+      edge cases acima (obrigatório)
+- [ ] `go test -race` verde
+- [ ] SPEC.md deste pacote atualizado se a convenção mudou
 
 ## Fora de escopo / não fazer
 
 Coisas que alguém pode ser tentado a adicionar mas que essa tarefa
-explicitamente não cobre (ex.: "sem paginação nessa versão", "sem
-autorização por papel/role ainda").
+explicitamente não cobre.
 
 -

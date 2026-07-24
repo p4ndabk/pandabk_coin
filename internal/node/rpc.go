@@ -17,8 +17,7 @@ import (
 )
 
 // RPC JSON local: POST /rpc {"method": "...", "params": {...}} →
-// {"result": ...} ou {"error": {"code", "message"}} — mesmo espírito de
-// envelope do apierror, sem importá-lo (o node não usa Gin).
+// {"result": ...} ou {"error": {"code", "message"}}.
 
 type rpcRequest struct {
 	Method string          `json:"method"`

@@ -2,8 +2,7 @@
 
 > Domínio do node Zhu (ver [PLAN.md](../../PLAN.md)). É o overview do node:
 > junta `params`+`chain`+`mempool`+`p2p`+`miner`+`wallet` num processo só,
-> exposto pelo binário `cmd/node`. Wiring manual, sem DI — mesmo espírito de
-> `cmd/api/main.go`.
+> exposto pelo binário `cmd/node`. Wiring manual, sem DI.
 
 ## Conceito
 
@@ -30,11 +29,10 @@ ciclo de vida seguro e uma superfície de controle que não vira buraco de
 segurança.
 
 - **Wiring manual, sem DI, sem Gin/GORM.** O node monta chain→mempool→p2p→miner à
-  mão no `Node`, igual ao `cmd/api/main.go` do skeleton faz com seus serviços. Um
-  container de injeção esconderia a ordem de dependência que aqui é justamente o
-  que precisa estar explícito (e é o que a ordem de shutdown depende). O node vive
-  fora do stack Gin/GORM de propósito: é um binário estático de consenso, não uma
-  API web.
+  mão no `Node`. Um container de injeção esconderia a ordem de dependência que
+  aqui é justamente o que precisa estar explícito (e é o que a ordem de shutdown
+  depende). O node vive fora do stack Gin/GORM de propósito: é um binário
+  estático de consenso, não uma API web.
 - **RPC em `net/http` da stdlib, bind exclusivo em loopback.** A RPC é a interface
   de *controle do dono* (ver saldo, enviar, desligar) — não uma API pública.
   Recusar bind fora de `127.0.0.1` por construção significa que expor o node à
@@ -46,11 +44,9 @@ segurança.
   competiria com o `run` e um dos dois falharia (ou pior, corromperia). Perguntar
   pela porta RPC ao node em execução é o que permite consultar/enviar com o node
   ligado. É a razão de a RPC existir, não um luxo.
-- **Envelope de erro `{code, message}` espelha o `apierror`, sem importá-lo.** O
-  node não usa Gin, então não pode usar o `apierror` do skeleton; mas repetir o
-  *formato* de erro mantém a consistência de resposta entre as duas metades do
-  repo sem criar uma dependência do node no mundo HTTP. Convenção compartilhada,
-  acoplamento não.
+- **Envelope de erro `{code, message}`, consistente em toda a RPC.** O node não
+  usa Gin, então a RPC define seu próprio formato de erro — simples, previsível
+  e igual em todo método, sem depender de nada do mundo HTTP.
 - **Minerar é default (opt-out `--mine=false`), e exige wallet.** Detalhado no
   `miner`, mas a consequência de orquestração mora aqui: se o node vai minerar por
   padrão, precisa de um endereço para a coinbase — então o primeiro `run` cria a
@@ -60,9 +56,7 @@ segurança.
 - **Config em camadas: flag > arquivo `zhu.conf` > env `NODE_*` > default.** A
   mesma chave pode vir de quatro lugares, com precedência clara. Flags para o
   ajuste pontual, arquivo para o setup persistente (menos flags repetidos), env
-  para container/systemd, default para "só funciona". Espelha o `getEnv` do
-  `internal/config` sem tocá-lo — o node tem sua config, mas segue o padrão da
-  casa.
+  para container/systemd, default para "só funciona".
 - **Shutdown em ordem estrita: p2p → miner → bbolt.** Fechar o banco antes de
   parar quem escreve nele (miner e p2p aceitando blocos) corromperia uma
   transação em voo. A ordem não é estética: parar as fontes de escrita primeiro e
@@ -82,8 +76,7 @@ local para o CLI e definir a configuração do node.
 ## Escopo
 
 Entra:
-- `config.go` — flags primeiro, env `NODE_*` como fallback (espelha o padrão
-  `getEnv` de `internal/config/config.go`, sem tocá-lo):
+- `config.go` — flags primeiro, env `NODE_*` como fallback:
   `--datadir`/`NODE_DATADIR` (default `~/.zhu`), `--listen`/`NODE_LISTEN`
   (`:9551`), `--rpc`/`NODE_RPC` (`127.0.0.1:8555`), `--peers`/`NODE_PEERS`
   (lista separada por vírgula), `--mine`/`NODE_MINE` (**default true** —
@@ -104,7 +97,7 @@ Entra:
 
 Fica de fora:
 - RPC autenticada/exposta externamente (localhost only nesta versão)
-- Explorer/HTTP público (pode vir do skeleton Gin no futuro — fora deste node)
+- Explorer/HTTP público (evolução futura, fora deste node)
 
 ## Modelo de dados
 
@@ -130,8 +123,7 @@ node genesis --profile devnet          # dev-only, minera e imprime o gênesis
 ```
 
 RPC: POST JSON em `/rpc` `{"method": "...", "params": {...}}` → resposta
-`{"result": ...}` ou `{"error": {"code", "message"}}` (mesmo espírito de
-envelope do apierror, sem importá-lo).
+`{"result": ...}` ou `{"error": {"code", "message"}}`.
 
 ## Casos de erro / edge cases
 
