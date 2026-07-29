@@ -26,6 +26,9 @@ está organizado por dentro, é `SPEC.md`.
 | [ZEN-006](./ZEN-006.md) | Política de mempool e relay de transações | `final` | política | `mempool` |
 | [ZEN-007](./ZEN-007.md) | Backup mnemônico (BIP39) e derivação de chave (SLIP-0010) | `final` | interoperabilidade | `wallet` |
 | [ZEN-008](./ZEN-008.md) | Interface RPC JSON do node (controle local) | `final` | interface-local | `node` |
+| [ZEN-009](./ZEN-009.md) | Cronograma de emissão em degraus com piso perpétuo | `draft` | consenso | `params` (substitui parte de ZEN-005) |
+| [ZEN-010](./ZEN-010.md) | Queima estrutural com commitment de 32 bytes | `draft` | consenso | `core`, `chain` |
+| [ZEN-011](./ZEN-011.md) | Queima da taxa de transação (fee burn) | `draft` | consenso | `chain`, `miner` (redefine regra 8 de ZEN-003) |
 
 Categorias, da mais para a menos crítica em termos de "quebra a rede se
 divergir":
